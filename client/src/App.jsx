@@ -130,6 +130,10 @@ function App() {
     return new Promise((resolve) => {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_BASE}/api/ingest`);
+      
+      // Add API Key header for authentication
+      const apiKey = localStorage.getItem("api-key") || "default-key";
+      xhr.setRequestHeader("X-API-Key", apiKey);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
