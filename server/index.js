@@ -150,6 +150,13 @@ app.post("/api/ingest", requireApiKey, upload.single("file"), async (req, res, n
 app.use((err, req, res, next) => {
   console.error(err);
 
+  // CORS errors should be handled by cors() middleware, but if we get here,
+  // ensure the response has CORS headers so browser doesn't block it
+  const origin = req.get("origin");
+  if (allowedOrigins.includes(origin)) {
+    res.set("Access-Control-Allow-Origin", origin);
+  }
+
   if (err instanceof LLMUnavailableError) {
     return res.status(503).json({ error: err.message });
   }
@@ -157,7 +164,7 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ error: err.message });
   }
   if (err.message?.startsWith("Origin")) {
-    return res.status(403).json({ error: "Not allowed by CORS" });
+    return res.status(403).json({ error: "Origin not allowed by CORS policy" });
   }
 
   res.status(500).json({ error: "Internal server error" });

@@ -2,10 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import "./App.css";
 
-// API base URL: configurable via VITE_API_URL for non-local deployments.
-// Empty string means relative requests, which the Vite dev server proxy
-// (see vite.config.js) forwards to the backend.
-const API_BASE = import.meta.env.VITE_API_URL || "";
+// API base URL: configurable via VITE_API_URL for production deployments.
+// For development (localhost), defaults to http://localhost:3001 for XMLHttpRequest compatibility.
+// The Vite proxy only works for regular fetch; XMLHttpRequest (file uploads) need absolute URL.
+const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "http://localhost:3001"
+    : "");
 
 const SESSION_STORAGE_KEY = "agentic-assistant-session-id";
 const MODEL_STORAGE_KEY = "agentic-assistant-model";
