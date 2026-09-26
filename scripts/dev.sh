@@ -75,7 +75,7 @@ echo ""
 # Start Backend
 echo -e "${YELLOW}🔙 Starting Backend Server...${NC}"
 cd "$PROJECT_ROOT/server" || exit 1
-npm start > /tmp/backend.log 2>&1 &
+npm run dev > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
 echo -e "${GREEN}✅ Backend PID: $BACKEND_PID${NC}"
 
@@ -84,7 +84,7 @@ sleep 2
 # Start Frontend
 echo -e "${YELLOW}🌐 Starting Frontend...${NC}"
 cd "$PROJECT_ROOT/client" || exit 1
-npm start > /tmp/frontend.log 2>&1 &
+npm run dev > /tmp/frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo -e "${GREEN}✅ Frontend PID: $FRONTEND_PID${NC}"
 

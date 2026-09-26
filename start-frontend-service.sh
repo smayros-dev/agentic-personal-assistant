@@ -171,9 +171,9 @@ start_frontend() {
     cd "$FRONTEND_DIR"
     
     print_info "Log file: $LOG_FILE"
-    print_info "Starting npm start..."
+    print_info "Starting npm run dev..."
     
-    npm start > "$LOG_FILE" 2>&1 &
+    npm run dev > "$LOG_FILE" 2>&1 &
     FRONTEND_PID=$!
     
     print_info "Frontend PID: $FRONTEND_PID"
@@ -254,7 +254,7 @@ main() {
     echo "Next steps:"
     echo ""
     echo "  • Chroma should be running: docker run -p 8000:8000 chromadb/chroma"
-    echo "  • Backend should be running: cd server && npm start"
+    echo "  • Backend should be running: cd server && npm run dev"
     echo "  • App ready at: $FRONTEND_URL"
     echo ""
     

@@ -62,14 +62,14 @@ sleep 2
 # Start Backend
 echo ""
 echo -e "${YELLOW}Starting Backend Server...${NC}"
-start_service "Backend" "$PROJECT_ROOT/server" "npm start"
+start_service "Backend" "$PROJECT_ROOT/server" "npm run dev"
 
 sleep 3
 
 # Start Frontend
 echo ""
 echo -e "${YELLOW}Starting Frontend...${NC}"
-start_service "Frontend" "$PROJECT_ROOT/client" "npm start"
+start_service "Frontend" "$PROJECT_ROOT/client" "npm run dev"
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
