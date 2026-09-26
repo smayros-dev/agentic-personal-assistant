@@ -10,6 +10,14 @@ import { unlink } from "node:fs/promises";
 import { runAgent, listOllamaModels, LLMUnavailableError } from "./agent.js";
 import { ingestData } from "./ingest.js";
 import { getVectorStoreConfig } from "./vectorstore.js";
+import {
+  addDocument,
+  listDocuments,
+  getDocument,
+  deleteDocument,
+  searchDocuments,
+  getDocumentStats,
+} from "./documents.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -162,16 +170,85 @@ app.post("/api/ingest", requireApiKey, upload.single("file"), async (req, res, n
       });
     }
 
-    await ingestData(req.file.path, req.file.originalname);
+    const fileName = req.file.originalname || `document-${Date.now()}.pdf`;
+    const documentId = `doc-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    await ingestData(req.file.path, fileName);
+    
+    // Track document in document management system
+    addDocument(documentId, {
+      fileName,
+      source: fileName,
+      size: req.file.size,
+      mimeType: req.file.mimetype,
+      chunkCount: 0, // Will be updated by ingestData in future
+    });
+
     await unlink(req.file.path).catch(() => undefined);
 
-    return res.json({ ok: true, message: `✅ PDF ingested successfully` });
+    return res.json({ 
+      ok: true, 
+      message: `✅ PDF ingested successfully`,
+      documentId,
+    });
   } catch (err) {
     if (req.file?.path) {
       await unlink(req.file.path).catch(() => undefined);
     }
     next(err);
   }
+});
+
+// --- Document Management Endpoints ---
+
+// List all documents
+app.get("/api/documents", requireApiKey, (_req, res) => {
+  const documents = listDocuments();
+  res.json({ 
+    documents,
+    count: documents.length,
+    stats: getDocumentStats(),
+  });
+});
+
+// Get specific document
+app.get("/api/documents/:id", requireApiKey, (req, res) => {
+  const doc = getDocument(req.params.id);
+  if (!doc) {
+    return res.status(404).json({ error: "Document not found" });
+  }
+  res.json({ document: doc });
+});
+
+// Search documents
+app.post("/api/documents/search", requireApiKey, (req, res) => {
+  const { query } = req.body;
+  if (!query || typeof query !== "string") {
+    return res.status(400).json({ error: "Search query required" });
+  }
+  const results = searchDocuments(query);
+  res.json({ 
+    results,
+    count: results.length,
+  });
+});
+
+// Delete document
+app.delete("/api/documents/:id", requireApiKey, (req, res) => {
+  const deleted = deleteDocument(req.params.id);
+  if (!deleted) {
+    return res.status(404).json({ error: "Document not found" });
+  }
+  res.json({ 
+    ok: true,
+    message: "Document deleted successfully",
+  });
+});
+
+// Document statistics
+app.get("/api/documents/stats/overview", requireApiKey, (_req, res) => {
+  const stats = getDocumentStats();
+  res.json(stats);
 });
 
 // Centralized error handler: logs full details server-side, returns a

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import "./App.css";
+import DocumentManager from "./components/DocumentManager";
 
 // API base URL: configurable via VITE_API_URL for production deployments.
 // For development (localhost), defaults to http://localhost:3001 for XMLHttpRequest compatibility.
@@ -244,6 +245,8 @@ function App() {
           )}
           {uploadStatus && <div className="uploadStatus">{uploadStatus}</div>}
         </section>
+
+        <DocumentManager />
 
         <section className="chatPanel">
           <div className="messages">
