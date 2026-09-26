@@ -84,6 +84,7 @@ export async function runAgent({ sessionId = "default", message, model }) {
         configurable: {
           thread_id: sessionId, // This maintains conversation history per session
         },
+        recursionLimit: 100, // Increased from default 25 to handle complex queries
       }
     );
 
