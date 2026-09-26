@@ -313,3 +313,175 @@ curl -H "x-api-key: my-secret-key" http://localhost:3001/api/chat
 **Last Updated:** 2026-09-26  
 **Completed Tasks:** 20/22  
 **Status:** 🟡 In Progress (Testing & CI/CD pending)
+
+---
+
+# 🆕 Phase 0+: Configurable Vector Store & Docker Integration
+
+## ✅ Completed Tasks
+
+### Architecture & Abstraction
+- [x] Create `server/vectorstore.js` — Abstraction layer supporting both Pinecone & Chroma
+  - Dynamic embedding initialization (PineconeEmbeddings vs OllamaEmbeddings)
+  - Unified API: `initializeVectorStore()`, `addDocuments()`, `searchVectorStore()`
+  - Configuration detection from `VECTOR_DB` env var
+  - Built-in logging & debugging output
+
+- [x] Refactor `server/ingest.js` — Use vectorstore abstraction
+  - Removed Pinecone-specific imports
+  - Now delegates to `addDocuments()` from abstraction
+  - Better error messages and logging
+
+- [x] Refactor `server/tools.js` — Use vectorstore abstraction
+  - Simplified search logic using `searchVectorStore()`
+  - Unified metadata handling for citations
+
+- [x] Update `server/index.js` — Add config endpoint
+  - `GET /api/config` returns current vector DB configuration
+  - Shows provider + relevant settings (without exposing secrets)
+
+### Docker & Containerization
+- [x] Create `docker-compose.yml` — Complete local stack
+  - Services: Ollama (LLM), Chroma (vector DB), Express server, React frontend (via npm dev)
+  - Healthchecks for service readiness
+  - Volume persistence for data (ollama_data, chroma_data)
+  - Internal networking (agentic-network)
+  - Environment variables for all configuration
+
+- [x] Create `server/Dockerfile` — Node.js server image
+  - Alpine base (lightweight)
+  - npm ci for reproducible builds
+  - Exposes port 3001
+
+- [x] Create `ollama-startup.sh` — Intelligent model auto-pull
+  - Waits for Ollama to be ready
+  - Auto-pulls embedding model: nomic-embed-text
+  - Auto-pulls LLM model: qwen2:7b
+  - Logs progress (important for first-run setup)
+
+### Configuration
+- [x] Update `server/.env.example` — Document both options
+  - Clear sections for Chroma vs Pinecone
+  - Helpful comments about pros/cons
+  - Example values for quick copy/paste
+
+- [x] Create `switch-vectorstore.sh` — CLI tool for switching providers
+  - `./switch-vectorstore.sh chroma` → enables Chroma config
+  - `./switch-vectorstore.sh pinecone` → enables Pinecone config
+  - Automatically comments/uncomments relevant variables
+  - Bash script (macOS/Linux compatible)
+
+### Documentation
+- [x] Create `VECTOR_STORE_SETUP.md` — Comprehensive guide
+  - Quick start with docker-compose
+  - Switching between Chroma and Pinecone
+  - Comparison matrix (cost, scale, privacy)
+  - Troubleshooting common errors
+  - Production deployment options
+
+- [x] Create `README_DOCKER.md` — Docker quick start
+  - Step-by-step: clone → configure → docker-compose up
+  - Feature highlights
+  - API endpoint reference
+  - Architecture diagram
+  - Performance benchmarks
+  - Deployment guides (cloud options)
+
+### Testing & Validation
+- [x] Syntax check all modified files (vectorstore.js, ingest.js, tools.js)
+- [x] Verify npm dependencies (PDFLoader, Chroma, Ollama embeddings)
+- [ ] **TODO:** Runtime test: docker-compose up → upload PDF → search
+
+## 📊 Files Changed
+
+### New Files
+1. `server/vectorstore.js` (181 lines) — Abstraction layer
+2. `docker-compose.yml` (72 lines) — Complete Docker setup
+3. `server/Dockerfile` (15 lines) — Node.js containerization
+4. `ollama-startup.sh` (40 lines) — Model auto-pull script
+5. `switch-vectorstore.sh` (80 lines) — CLI switcher tool
+6. `VECTOR_STORE_SETUP.md` (5.6 KB) — DB configuration guide
+7. `README_DOCKER.md` (6.7 KB) — Quick start guide
+8. `tasks.md` (THIS FILE) — Updated with Phase 0+ section
+
+### Modified Files
+1. `server/ingest.js` (Refactored from 48 lines → 37 lines)
+   - Removed Pinecone imports
+   - Now uses `addDocuments()` abstraction
+
+2. `server/tools.js` (Simplified from 60 lines → 35 lines)
+   - Removed vector store initialization
+   - Now uses `searchVectorStore()` abstraction
+
+3. `server/index.js` (Added 1 new import + 8 lines)
+   - Import `getVectorStoreConfig`
+   - Added `/api/config` endpoint (line ~90)
+
+4. `server/.env.example` (Restructured)
+   - Better organized sections (Chroma vs Pinecone)
+   - Clearer comments and examples
+
+## 🎯 Next Steps (Phase 1: Validation)
+
+### Pre-Launch Checklist
+- [ ] Docker-compose full startup test (~10 min wait)
+- [ ] Verify Ollama auto-pulls models successfully
+- [ ] Test PDF upload → ingest → search workflow
+- [ ] Test both Chroma and Pinecone configurations
+- [ ] Verify error handling for misconfigured vector DB
+- [ ] Test `/api/config` endpoint
+- [ ] Benchmark response times (ingestion + search)
+
+### Expected Results
+```bash
+# After docker-compose up:
+✓ Ollama serving on :11434 (with qwen2:7b + nomic-embed-text)
+✓ Chroma serving on :8000 (with agentic-rag collection)
+✓ Server running on :3001 (with /api/config working)
+✓ Frontend running on :5173 (can upload PDFs)
+✓ First PDF upload processes successfully
+✓ Chat retrieves relevant context
+✓ Sources are cited in responses
+```
+
+### Blockers & Workarounds
+- **Ollama model pull takes 5-10 minutes (first run)**
+  - Solution: Have user run docker-compose and wait; logs show progress
+  - Document in README_DOCKER.md clearly
+  
+- **Chroma collection created on first ingest (not on startup)**
+  - Expected behavior; first PDF upload creates collection
+  - Add pre-ingest validation to catch missing CHROMA_URL early
+
+- **Pinecone credentials validation**
+  - `vectorstore.js` checks for placeholder values
+  - Better error message guides user to https://app.pinecone.io
+
+## 🔄 Configuration Testing Matrix
+
+```
+Setup             | Vector DB    | LLM          | Status
+------------------|--------------|--------------|--------
+Docker default    | Chroma local | qwen2:7b     | ✓ Ready to test
+Docker alt        | Pinecone     | qwen2:7b     | ✓ With real API key
+Local (Chroma)    | Chroma       | qwen2:7b     | ✓ Ready
+Local (Pinecone)  | Pinecone     | qwen2:7b     | ✓ With real API key
+```
+
+## 📈 Improvement Summary
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| **Vector DB Support** | Pinecone only | Chroma + Pinecone (configurable) |
+| **Setup Complexity** | Manual config + API key | docker-compose up (fully local) |
+| **Offline Capable** | ❌ No | ✅ Yes (Chroma) |
+| **Code Duplication** | Scattered Pinecone logic | Centralized abstraction (vectorstore.js) |
+| **Configuration** | Single .env | Clear Chroma vs Pinecone sections |
+| **Documentation** | Pinecone only | Dedicated guides for both |
+
+## 📝 Status
+
+**Phase 0 (Architecture):** ✅ COMPLETE  
+**Phase 1 (Validation):** ⏳ PENDING  
+**Phase 2 (Features):** 📅 SCHEDULED  
+**Estimated Total Time:** 3-4 weeks to production-ready v1.0

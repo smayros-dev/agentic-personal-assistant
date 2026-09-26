@@ -9,6 +9,7 @@ import path from "node:path";
 import { unlink } from "node:fs/promises";
 import { runAgent, listOllamaModels, LLMUnavailableError } from "./agent.js";
 import { ingestData } from "./ingest.js";
+import { getVectorStoreConfig } from "./vectorstore.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -79,6 +80,15 @@ const MAX_MESSAGE_LENGTH = 4000;
 // Health check
 app.get("/healthz", (_req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
+});
+
+// Vector store configuration endpoint
+app.get("/api/config", requireApiKey, (_req, res) => {
+  const config = getVectorStoreConfig();
+  res.json({
+    vectorStore: config.provider.toUpperCase(),
+    config,
+  });
 });
 
 // Lists models currently installed/pulled in the local Ollama instance,
