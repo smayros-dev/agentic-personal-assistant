@@ -37,12 +37,16 @@ fi
 echo -e "${GREEN}✅ Ollama container is running${NC}"
 echo ""
 
-# Function to install a model
+# Function to install a model using HTTP API
 install_model() {
     local model=$1
     echo -e "${BLUE}📥 Installing model: $model${NC}"
     
-    if docker exec "$CONTAINER_NAME" ollama pull "$model"; then
+    # Use HTTP API to pull model
+    if curl -s -X POST "http://localhost:11434/api/pull" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"$model\"}" \
+        --max-time 3600 > /dev/null 2>&1; then
         echo -e "${GREEN}✅ Successfully installed: $model${NC}"
     else
         echo -e "${YELLOW}⚠️  Failed to install: $model${NC}"
