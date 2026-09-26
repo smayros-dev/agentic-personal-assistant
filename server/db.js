@@ -27,9 +27,13 @@ function initializeSchema() {
       fileSize INTEGER NOT NULL,
       pageCount INTEGER NOT NULL,
       uploadedAt TEXT NOT NULL,
-      createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_uploadedAt (uploadedAt)
+      createdAt TEXT DEFAULT CURRENT_TIMESTAMP
     )
+  `);
+
+  // Create indexes for documents
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_documents_uploadedAt ON documents(uploadedAt);
   `);
 
   // Conversations table
@@ -38,9 +42,13 @@ function initializeSchema() {
       id TEXT PRIMARY KEY,
       sessionId TEXT NOT NULL UNIQUE,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TEXT DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_sessionId (sessionId)
+      updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
     )
+  `);
+
+  // Create indexes for conversations
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_conversations_sessionId ON conversations(sessionId);
   `);
 
   // Messages table
@@ -52,10 +60,14 @@ function initializeSchema() {
       content TEXT NOT NULL,
       model TEXT,
       createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (conversationId) REFERENCES conversations(id),
-      INDEX idx_conversationId (conversationId),
-      INDEX idx_createdAt (createdAt)
+      FOREIGN KEY (conversationId) REFERENCES conversations(id)
     )
+  `);
+
+  // Create indexes for messages
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_messages_conversationId ON messages(conversationId);
+    CREATE INDEX IF NOT EXISTS idx_messages_createdAt ON messages(createdAt);
   `);
 }
 
