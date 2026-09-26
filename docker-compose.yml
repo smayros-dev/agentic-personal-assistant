@@ -1,4 +1,4 @@
-version: '3.8'
+# Docker Compose configuration (version directive removed per Docker guidelines)
 
 services:
   # Ollama: LLM local (qwen2:7b, mistral, etc.)
