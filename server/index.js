@@ -18,16 +18,23 @@ const PORT = process.env.PORT || 3001;
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
 // --- CORS: restrict to an explicit allow-list (comma-separated CORS_ORIGIN env var) ---
-// Default includes both localhost dev ports (5173 and 5174) for Vite flexibility
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174")
+// Default includes localhost dev ports for Vite flexibility
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
 
+// Development mode: accept all localhost
+const isDev = process.env.NODE_ENV !== "production";
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow non-browser requests (no origin header, e.g. curl/server-to-server)
+      // In development, allow all localhost origins
+      if (isDev && origin && origin.includes("localhost")) {
+        return callback(null, true);
+      }
+      // In production, check allowlist
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
