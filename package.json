@@ -7,7 +7,11 @@
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev",
     "lint": "npm --prefix server run lint:fix && npm --prefix client run lint:fix && npm --prefix server run format && npm --prefix client run format",
-    "install:all": "npm install && npm --prefix server install --legacy-peer-deps && npm --prefix client install --legacy-peer-deps"
+    "install:all": "npm install && npm --prefix server install --legacy-peer-deps && npm --prefix client install --legacy-peer-deps",
+    "install:models": "bash ./install-models.sh",
+    "install:models:default": "bash ./install-models.sh qwen2:7b mistral:7b neural-chat:7b nomic-embed-text:latest",
+    "install:models:custom": "bash ./install-models.sh",
+    "list:models": "docker exec agentic-ollama-dev ollama list"
   },
   "devDependencies": {
     "concurrently": "^9.2.0"
