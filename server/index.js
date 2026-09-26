@@ -133,10 +133,22 @@ app.post("/api/ingest", requireApiKey, upload.single("file"), async (req, res, n
       return res.status(400).json({ error: "Missing PDF file" });
     }
 
+    // Validate Pinecone credentials before attempting ingestion
+    const apiKey = process.env.PINECONE_API_KEY;
+    const indexName = process.env.PINECONE_INDEX;
+
+    if (!apiKey || !indexName) {
+      console.warn("⚠️ Pinecone not configured. Set PINECONE_API_KEY and PINECONE_INDEX in server/.env");
+      await unlink(req.file.path).catch(() => undefined);
+      return res.status(503).json({
+        error: "Pinecone not configured. Please set PINECONE_API_KEY and PINECONE_INDEX in server/.env"
+      });
+    }
+
     await ingestData(req.file.path, req.file.originalname);
     await unlink(req.file.path).catch(() => undefined);
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, message: `✅ PDF ingested successfully` });
   } catch (err) {
     if (req.file?.path) {
       await unlink(req.file.path).catch(() => undefined);
@@ -161,6 +173,27 @@ app.use((err, req, res, next) => {
   if (err instanceof LLMUnavailableError) {
     return res.status(503).json({ error: err.message });
   }
+
+  // Pinecone connection errors (SSL, API key, network)
+  if (err.name === "PineconeConnectionError" || err.message?.includes("PineconeConnectionError")) {
+    console.error("❌ Pinecone Connection Error:", {
+      message: err.message,
+      cause: err.cause?.message,
+      code: err.cause?.code
+    });
+    
+    // Check for common causes
+    if (err.cause?.code === "UNABLE_TO_GET_ISSUER_CERT_LOCALLY") {
+      return res.status(503).json({
+        error: "Cannot connect to Pinecone. Check your PINECONE_API_KEY and network connection."
+      });
+    }
+    
+    return res.status(503).json({
+      error: "Pinecone service unavailable. Please try again later."
+    });
+  }
+
   if (err.message === "Only PDF files are allowed") {
     return res.status(400).json({ error: err.message });
   }
@@ -168,6 +201,7 @@ app.use((err, req, res, next) => {
     return res.status(403).json({ error: "Origin not allowed by CORS policy" });
   }
 
+  // Generic error message to client
   res.status(500).json({ error: "Internal server error" });
 });
 
