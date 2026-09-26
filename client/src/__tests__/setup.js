@@ -1,3 +1,4 @@
+/* global global */
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
@@ -35,17 +36,21 @@ if (typeof window !== 'undefined' && !window.localStorage) {
 Element.prototype.scrollIntoView = vi.fn();
 
 // Mock fetch globally as a proper vi.fn()
-global.fetch = vi.fn(() =>
-  Promise.resolve({
-    json: () => Promise.resolve({}),
-    ok: true,
-    status: 200,
-  })
-);
+if (typeof global !== 'undefined') {
+  global.fetch = vi.fn(() =>
+    Promise.resolve({
+      json: () => Promise.resolve({}),
+      ok: true,
+      status: 200,
+    })
+  );
+}
 
 // Suppress console errors in tests (optional)
-global.console = {
-  ...console,
-  error: vi.fn(),
-  warn: vi.fn(),
-};
+if (typeof global !== 'undefined') {
+  global.console = {
+    ...console,
+    error: vi.fn(),
+    warn: vi.fn(),
+  };
+}

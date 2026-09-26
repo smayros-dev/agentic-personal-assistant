@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Main CI environment
+  ci-runner:
+    image: node:20-alpine
+    container_name: agentic-ci-runner
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/server/node_modules
+      - /app/client/node_modules
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - VECTOR_DB=chroma
+      - CHROMA_URL=http://chroma:8000
+      - CHROMA_COLLECTION=agentic-rag
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen2:7b
+      - CORS_ORIGIN=http://localhost:5173
+    command: tail -f /dev/null
+    depends_on:
+      - ollama
+      - chroma
+    networks:
+      - ci-network
+
+  # Ollama service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: agentic-ollama-ci
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ci-network
+    volumes:
+      - ollama_models_ci:/root/.ollama
+
+  # Chroma vector database
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: agentic-chroma-ci
+    ports:
+      - "8000:8000"
+    environment:
+      - CHROMA_SERVER_AUTH_PROVIDER=none
+      - CHROMA_SERVER_CORS_ALLOW_ORIGINS=["*"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ci-network
+    volumes:
+      - chroma_data_ci:/chroma/data
+
+volumes:
+  ollama_models_ci:
+  chroma_data_ci:
+
+networks:
+  ci-network:
+    driver: bridge
