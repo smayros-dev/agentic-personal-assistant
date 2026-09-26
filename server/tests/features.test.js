@@ -1,32 +1,32 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from "vitest";
 
-describe('Server - Document Management', () => {
-  it('should create a document registry', () => {
+describe("Server - Document Management", () => {
+  it("should create a document registry", () => {
     const createRegistry = () => new Map();
     const registry = createRegistry();
     expect(registry).toBeDefined();
     expect(registry.size).toBe(0);
   });
 
-  it('should add a document to registry', () => {
+  it("should add a document to registry", () => {
     const registry = new Map();
     const doc = {
-      id: 'doc-1',
-      fileName: 'test.pdf',
+      id: "doc-1",
+      fileName: "test.pdf",
       uploadedAt: new Date(),
       pageCount: 5,
       size: 1024,
     };
 
     registry.set(doc.id, doc);
-    expect(registry.get('doc-1')).toEqual(doc);
+    expect(registry.get("doc-1")).toEqual(doc);
     expect(registry.size).toBe(1);
   });
 
-  it('should search documents by filename', () => {
+  it("should search documents by filename", () => {
     const registry = new Map();
-    registry.set('doc-1', { id: 'doc-1', fileName: 'report.pdf' });
-    registry.set('doc-2', { id: 'doc-2', fileName: 'notes.txt' });
+    registry.set("doc-1", { id: "doc-1", fileName: "report.pdf" });
+    registry.set("doc-2", { id: "doc-2", fileName: "notes.txt" });
 
     const search = (query) => {
       const results = [];
@@ -38,24 +38,24 @@ describe('Server - Document Management', () => {
       return results;
     };
 
-    const results = search('report');
+    const results = search("report");
     expect(results).toHaveLength(1);
-    expect(results[0].fileName).toBe('report.pdf');
+    expect(results[0].fileName).toBe("report.pdf");
   });
 
-  it('should delete a document', () => {
+  it("should delete a document", () => {
     const registry = new Map();
-    registry.set('doc-1', { id: 'doc-1', fileName: 'test.pdf' });
+    registry.set("doc-1", { id: "doc-1", fileName: "test.pdf" });
 
-    expect(registry.has('doc-1')).toBe(true);
-    registry.delete('doc-1');
-    expect(registry.has('doc-1')).toBe(false);
+    expect(registry.has("doc-1")).toBe(true);
+    registry.delete("doc-1");
+    expect(registry.has("doc-1")).toBe(false);
   });
 
-  it('should calculate document statistics', () => {
+  it("should calculate document statistics", () => {
     const registry = new Map();
-    registry.set('doc-1', { id: 'doc-1', size: 1024, chunkCount: 5 });
-    registry.set('doc-2', { id: 'doc-2', size: 2048, chunkCount: 10 });
+    registry.set("doc-1", { id: "doc-1", size: 1024, chunkCount: 5 });
+    registry.set("doc-2", { id: "doc-2", size: 2048, chunkCount: 10 });
 
     const stats = {
       totalDocuments: registry.size,
@@ -69,13 +69,13 @@ describe('Server - Document Management', () => {
   });
 });
 
-describe('Server - Chat Routes', () => {
-  it('should handle chat requests', () => {
+describe("Server - Chat Routes", () => {
+  it("should handle chat requests", () => {
     const handleChat = async (message, model, sessionId) => {
       // Simulate chat handler
-      if (!message) throw new Error('Message required');
-      if (!model) throw new Error('Model required');
-      
+      if (!message) throw new Error("Message required");
+      if (!model) throw new Error("Model required");
+
       return {
         message: `Response to: ${message}`,
         model,
@@ -85,22 +85,22 @@ describe('Server - Chat Routes', () => {
     };
 
     expect(async () => {
-      await handleChat('Hello', 'ollama:mistral', 'session-1');
+      await handleChat("Hello", "ollama:mistral", "session-1");
     }).not.toThrow();
   });
 
-  it('should validate message length', () => {
+  it("should validate message length", () => {
     const MAX_MESSAGE_LENGTH = 4000;
     const isValidMessage = (message) => {
       return !!message && message.length > 0 && message.length <= MAX_MESSAGE_LENGTH;
     };
 
-    expect(isValidMessage('Hello')).toBe(true);
-    expect(isValidMessage('')).toBe(false);
-    expect(isValidMessage('a'.repeat(MAX_MESSAGE_LENGTH + 1))).toBe(false);
+    expect(isValidMessage("Hello")).toBe(true);
+    expect(isValidMessage("")).toBe(false);
+    expect(isValidMessage("a".repeat(MAX_MESSAGE_LENGTH + 1))).toBe(false);
   });
 
-  it('should maintain session context', () => {
+  it("should maintain session context", () => {
     const sessions = new Map();
 
     const addMessage = (sessionId, message) => {
@@ -112,28 +112,28 @@ describe('Server - Chat Routes', () => {
 
     const getSession = (sessionId) => sessions.get(sessionId) || [];
 
-    addMessage('session-1', { role: 'user', content: 'Hello' });
-    addMessage('session-1', { role: 'assistant', content: 'Hi there' });
+    addMessage("session-1", { role: "user", content: "Hello" });
+    addMessage("session-1", { role: "assistant", content: "Hi there" });
 
-    const messages = getSession('session-1');
+    const messages = getSession("session-1");
     expect(messages).toHaveLength(2);
-    expect(messages[0].role).toBe('user');
-    expect(messages[1].role).toBe('assistant');
+    expect(messages[0].role).toBe("user");
+    expect(messages[1].role).toBe("assistant");
   });
 });
 
-describe('Server - Ingestion Routes', () => {
-  it('should validate PDF file type', () => {
+describe("Server - Ingestion Routes", () => {
+  it("should validate PDF file type", () => {
     const isValidPdfFile = (filename) => {
-      return filename.toLowerCase().endsWith('.pdf');
+      return filename.toLowerCase().endsWith(".pdf");
     };
 
-    expect(isValidPdfFile('document.pdf')).toBe(true);
-    expect(isValidPdfFile('document.txt')).toBe(false);
-    expect(isValidPdfFile('DOCUMENT.PDF')).toBe(true);
+    expect(isValidPdfFile("document.pdf")).toBe(true);
+    expect(isValidPdfFile("document.txt")).toBe(false);
+    expect(isValidPdfFile("DOCUMENT.PDF")).toBe(true);
   });
 
-  it('should handle file size limits', () => {
+  it("should handle file size limits", () => {
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
     const isValidFileSize = (size) => size <= MAX_FILE_SIZE;
 
@@ -141,7 +141,7 @@ describe('Server - Ingestion Routes', () => {
     expect(isValidFileSize(51 * 1024 * 1024)).toBe(false); // 51MB
   });
 
-  it('should parse PDF chunks', () => {
+  it("should parse PDF chunks", () => {
     const parseChunks = (text, chunkSize = 1000, overlap = 200) => {
       const chunks = [];
       for (let i = 0; i < text.length; i += chunkSize - overlap) {
@@ -150,9 +150,9 @@ describe('Server - Ingestion Routes', () => {
       return chunks;
     };
 
-    const text = 'a'.repeat(2500);
+    const text = "a".repeat(2500);
     const chunks = parseChunks(text, 1000, 200);
-    
+
     expect(chunks.length).toBeGreaterThan(0);
     expect(chunks[0].length).toBe(1000);
   });

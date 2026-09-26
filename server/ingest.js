@@ -31,11 +31,11 @@ export const ingestData = async (filePath, originalName) => {
     const cleanedMetadata = {};
     for (const [key, value] of Object.entries(chunk.metadata || {})) {
       // Only keep string/number/boolean values for Chroma compatibility
-      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
         cleanedMetadata[key] = value;
       }
     }
-    
+
     // Add our own metadata
     chunk.metadata = {
       ...cleanedMetadata,

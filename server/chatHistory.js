@@ -3,8 +3,8 @@
  * Stores and retrieves conversations and messages
  */
 
-import db from './db.js';
-import { v4 as uuid } from 'uuid';
+import db from "./db.js";
+import { v4 as uuid } from "uuid";
 
 /**
  * Save message to database
@@ -16,11 +16,9 @@ import { v4 as uuid } from 'uuid';
  */
 export function saveMessage(sessionId, role, content, model) {
   // Get or create conversation
-  let convStmt = db.prepare(
-    'SELECT id FROM conversations WHERE sessionId = ?'
-  );
+  let convStmt = db.prepare("SELECT id FROM conversations WHERE sessionId = ?");
   let conversation = convStmt.get(sessionId);
-  
+
   let conversationId;
   if (!conversation) {
     conversationId = uuid();
@@ -43,7 +41,7 @@ export function saveMessage(sessionId, role, content, model) {
 
   // Update conversation timestamp
   const updateConvStmt = db.prepare(
-    'UPDATE conversations SET updatedAt = datetime("now") WHERE id = ?'
+    "UPDATE conversations SET updatedAt = datetime('now') WHERE id = ?"
   );
   updateConvStmt.run(conversationId);
 
@@ -93,16 +91,16 @@ export function getAllConversations() {
  * @returns {boolean} True if deleted
  */
 export function deleteConversation(sessionId) {
-  const convStmt = db.prepare('SELECT id FROM conversations WHERE sessionId = ?');
+  const convStmt = db.prepare("SELECT id FROM conversations WHERE sessionId = ?");
   const conversation = convStmt.get(sessionId);
-  
+
   if (!conversation) return false;
 
   // Delete messages
-  db.prepare('DELETE FROM messages WHERE conversationId = ?').run(conversation.id);
-  
+  db.prepare("DELETE FROM messages WHERE conversationId = ?").run(conversation.id);
+
   // Delete conversation
-  const result = db.prepare('DELETE FROM conversations WHERE id = ?').run(conversation.id);
+  const result = db.prepare("DELETE FROM conversations WHERE id = ?").run(conversation.id);
   return result.changes > 0;
 }
 
@@ -111,9 +109,9 @@ export function deleteConversation(sessionId) {
  * @returns {Object} Statistics
  */
 export function getConversationStats() {
-  const convCount = db.prepare('SELECT COUNT(*) as count FROM conversations').get();
-  const msgCount = db.prepare('SELECT COUNT(*) as count FROM messages').get();
-  
+  const convCount = db.prepare("SELECT COUNT(*) as count FROM conversations").get();
+  const msgCount = db.prepare("SELECT COUNT(*) as count FROM messages").get();
+
   return {
     totalConversations: convCount?.count || 0,
     totalMessages: msgCount?.count || 0,
@@ -124,6 +122,6 @@ export function getConversationStats() {
  * Clear all conversations (for testing)
  */
 export function clearConversations() {
-  db.prepare('DELETE FROM messages').run();
-  db.prepare('DELETE FROM conversations').run();
+  db.prepare("DELETE FROM messages").run();
+  db.prepare("DELETE FROM conversations").run();
 }

@@ -18,6 +18,10 @@
     "test:coverage": "concurrently \"npm --prefix server run test:coverage\" \"npm --prefix client run test:coverage\""
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^5.0.2",
     "concurrently": "^9.2.0"
+  },
+  "dependencies": {
+    "helmet": "^8.3.0"
   }
 }

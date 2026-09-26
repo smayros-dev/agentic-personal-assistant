@@ -1,11 +1,11 @@
 /* global global */
-import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import "@testing-library/jest-dom";
+import { vi } from "vitest";
 
 // Mock window.matchMedia
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: vi.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -18,7 +18,7 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock localStorage with proper jsdom handling
-if (typeof window !== 'undefined' && !window.localStorage) {
+if (typeof window !== "undefined" && !window.localStorage) {
   const localStorageMock = {
     getItem: vi.fn(),
     setItem: vi.fn(),
@@ -27,7 +27,7 @@ if (typeof window !== 'undefined' && !window.localStorage) {
     key: vi.fn(),
     length: 0,
   };
-  Object.defineProperty(window, 'localStorage', {
+  Object.defineProperty(window, "localStorage", {
     value: localStorageMock,
   });
 }
@@ -36,7 +36,7 @@ if (typeof window !== 'undefined' && !window.localStorage) {
 Element.prototype.scrollIntoView = vi.fn();
 
 // Mock fetch globally as a proper vi.fn()
-if (typeof global !== 'undefined') {
+if (typeof global !== "undefined") {
   global.fetch = vi.fn(() =>
     Promise.resolve({
       json: () => Promise.resolve({}),
@@ -47,7 +47,7 @@ if (typeof global !== 'undefined') {
 }
 
 // Suppress console errors in tests (optional)
-if (typeof global !== 'undefined') {
+if (typeof global !== "undefined") {
   global.console = {
     ...console,
     error: vi.fn(),

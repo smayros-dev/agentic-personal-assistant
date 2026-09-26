@@ -3,7 +3,7 @@
  * Includes full-text search, filtering, and faceting
  */
 
-import db from './db.js';
+import db from "./db.js";
 
 /**
  * Advanced search with filters
@@ -16,27 +16,21 @@ import db from './db.js';
  * @returns {Object} Results and metadata
  */
 export function advancedSearch(options = {}) {
-  const {
-    query = '',
-    sortBy = 'uploadedAt',
-    sortOrder = 'DESC',
-    limit = 50,
-    offset = 0,
-  } = options;
+  const { query = "", sortBy = "uploadedAt", sortOrder = "DESC", limit = 50, offset = 0 } = options;
 
   // Build WHERE clause
-  let whereClause = 'WHERE 1=1';
+  let whereClause = "WHERE 1=1";
   const params = [];
 
   if (query && query.trim()) {
-    whereClause += ' AND LOWER(fileName) LIKE ?';
+    whereClause += " AND LOWER(fileName) LIKE ?";
     params.push(`%${query.toLowerCase()}%`);
   }
 
   // Validate sort field
-  const validSortFields = ['uploadedAt', 'fileName', 'fileSize', 'pageCount'];
-  const sortField = validSortFields.includes(sortBy) ? sortBy : 'uploadedAt';
-  const sortDir = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+  const validSortFields = ["uploadedAt", "fileName", "fileSize", "pageCount"];
+  const sortField = validSortFields.includes(sortBy) ? sortBy : "uploadedAt";
+  const sortDir = sortOrder === "ASC" ? "ASC" : "DESC";
 
   // Get total count
   const countStmt = db.prepare(`
@@ -76,7 +70,7 @@ export function searchByDateRange(options = {}) {
   const { startDate, endDate } = options;
 
   if (!startDate || !endDate) {
-    throw new Error('startDate and endDate are required');
+    throw new Error("startDate and endDate are required");
   }
 
   const stmt = db.prepare(`
@@ -168,7 +162,7 @@ export function getSearchFacets() {
  * @param {number} limit - Max suggestions
  * @returns {Array} Suggested file names
  */
-export function getSearchSuggestions(prefix = '', limit = 10) {
+export function getSearchSuggestions(prefix = "", limit = 10) {
   if (!prefix || prefix.length < 1) {
     return [];
   }
@@ -182,7 +176,7 @@ export function getSearchSuggestions(prefix = '', limit = 10) {
   `);
 
   const results = stmt.all(`${prefix.toLowerCase()}%`, limit);
-  return results.map(r => r.fileName);
+  return results.map((r) => r.fileName);
 }
 
 /**
@@ -195,7 +189,7 @@ export function exportSearchResults(options = {}) {
 
   return {
     exportedAt: new Date().toISOString(),
-    query: options.query || '',
+    query: options.query || "",
     resultCount: results.length,
     results,
   };
@@ -207,8 +201,8 @@ export function exportSearchResults(options = {}) {
  * @param {string} similarityType - 'size' or 'pages'
  * @returns {Array} Similar documents
  */
-export function getSimilarDocuments(documentId, similarityType = 'size') {
-  const docStmt = db.prepare('SELECT * FROM documents WHERE id = ?');
+export function getSimilarDocuments(documentId, similarityType = "size") {
+  const docStmt = db.prepare("SELECT * FROM documents WHERE id = ?");
   const doc = docStmt.get(documentId);
 
   if (!doc) {
@@ -216,7 +210,7 @@ export function getSimilarDocuments(documentId, similarityType = 'size') {
   }
 
   let query;
-  if (similarityType === 'size') {
+  if (similarityType === "size") {
     // Find documents with similar file size (within 20% tolerance)
     const tolerance = doc.fileSize * 0.2;
     query = `
@@ -226,12 +220,8 @@ export function getSimilarDocuments(documentId, similarityType = 'size') {
       ORDER BY fileSize
       LIMIT 5
     `;
-    return db.prepare(query).all(
-      documentId,
-      doc.fileSize - tolerance,
-      doc.fileSize + tolerance
-    );
-  } else if (similarityType === 'pages') {
+    return db.prepare(query).all(documentId, doc.fileSize - tolerance, doc.fileSize + tolerance);
+  } else if (similarityType === "pages") {
     // Find documents with similar page count
     query = `
       SELECT * FROM documents 
@@ -240,11 +230,7 @@ export function getSimilarDocuments(documentId, similarityType = 'size') {
       ORDER BY pageCount
       LIMIT 5
     `;
-    return db.prepare(query).all(
-      documentId,
-      Math.max(1, doc.pageCount - 2),
-      doc.pageCount + 2
-    );
+    return db.prepare(query).all(documentId, Math.max(1, doc.pageCount - 2), doc.pageCount + 2);
   }
 
   return [];

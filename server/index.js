@@ -4,10 +4,21 @@ import cors from "cors";
 import morgan from "morgan";
 import multer from "multer";
 import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import os from "node:os";
 import path from "node:path";
 import { unlink } from "node:fs/promises";
 import { runAgent, listOllamaModels, LLMUnavailableError } from "./agent.js";
+import {
+  chatMessageSchema,
+  fileUploadSchema,
+  searchQuerySchema,
+  dateRangeSchema,
+  fileSizeRangeSchema,
+  exportDocumentsSchema,
+  formatValidationError,
+  createValidationMiddleware,
+} from "./validators.js";
 import { ingestData } from "./ingest.js";
 import { getVectorStoreConfig } from "./vectorstore.js";
 import {
@@ -54,9 +65,27 @@ const PORT = process.env.PORT || 3001;
 // --- Logging ---
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
+// --- Security Headers (Helmet) ---
+app.use(helmet());
+app.use(helmet.contentSecurityPolicy({
+  directives: {
+    defaultSrc: ["'self'"],
+    scriptSrc: ["'self'", "'unsafe-inline'"],
+    styleSrc: ["'self'", "'unsafe-inline'"],
+    imgSrc: ["'self'", "data:", "https:"],
+  },
+}));
+app.use(helmet.hsts({ maxAge: 31536000, includeSubDomains: true, preload: true }));
+app.use(helmet.frameguard({ action: 'deny' }));
+app.use(helmet.noSniff());
+app.use(helmet.xssFilter());
+
 // --- CORS: restrict to an explicit allow-list (comma-separated CORS_ORIGIN env var) ---
 // Default includes localhost dev ports for Vite flexibility
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000")
+const allowedOrigins = (
+  process.env.CORS_ORIGIN ||
+  "http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:3000"
+)
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
@@ -149,19 +178,9 @@ app.get("/api/models", requireApiKey, async (_req, res, next) => {
 // Chat endpoint
 app.post("/api/chat", requireApiKey, async (req, res, next) => {
   try {
-    const { message, sessionId, model } = req.body;
-
-    if (!message || typeof message !== "string" || !message.trim()) {
-      return res.status(400).json({ error: "Message required" });
-    }
-    if (message.length > MAX_MESSAGE_LENGTH) {
-      return res
-        .status(400)
-        .json({ error: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)` });
-    }
-    if (model !== undefined && typeof model !== "string") {
-      return res.status(400).json({ error: "Invalid model" });
-    }
+    // Validate input using Zod schema
+    const validated = chatMessageSchema.parse(req.body);
+    const { message, sessionId, model } = validated;
 
     // Save user message to database
     if (sessionId) {
@@ -202,10 +221,13 @@ app.post("/api/ingest", requireApiKey, upload.single("file"), async (req, res, n
     const indexName = process.env.PINECONE_INDEX;
 
     if (!apiKey || !indexName) {
-      console.warn("⚠️ Pinecone not configured. Set PINECONE_API_KEY and PINECONE_INDEX in server/.env");
+      console.warn(
+        "⚠️ Pinecone not configured. Set PINECONE_API_KEY and PINECONE_INDEX in server/.env"
+      );
       await unlink(req.file.path).catch(() => undefined);
       return res.status(503).json({
-        error: "Pinecone not configured. Please set PINECONE_API_KEY and PINECONE_INDEX in server/.env"
+        error:
+          "Pinecone not configured. Please set PINECONE_API_KEY and PINECONE_INDEX in server/.env",
       });
     }
 
@@ -213,7 +235,7 @@ app.post("/api/ingest", requireApiKey, upload.single("file"), async (req, res, n
     const documentId = `doc-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     await ingestData(req.file.path, fileName);
-    
+
     // Track document in document management system
     addDocument(documentId, {
       fileName,
@@ -225,8 +247,8 @@ app.post("/api/ingest", requireApiKey, upload.single("file"), async (req, res, n
 
     await unlink(req.file.path).catch(() => undefined);
 
-    return res.json({ 
-      ok: true, 
+    return res.json({
+      ok: true,
       message: `✅ PDF ingested successfully`,
       documentId,
     });
@@ -243,7 +265,7 @@ app.post("/api/ingest", requireApiKey, upload.single("file"), async (req, res, n
 // List all documents
 app.get("/api/documents", requireApiKey, (_req, res) => {
   const documents = listDocuments();
-  res.json({ 
+  res.json({
     documents,
     count: documents.length,
     stats: getDocumentStats(),
@@ -266,7 +288,7 @@ app.post("/api/documents/search", requireApiKey, (req, res) => {
     return res.status(400).json({ error: "Search query required" });
   }
   const results = searchDocuments(query);
-  res.json({ 
+  res.json({
     results,
     count: results.length,
   });
@@ -278,7 +300,7 @@ app.delete("/api/documents/:id", requireApiKey, (req, res) => {
   if (!deleted) {
     return res.status(404).json({ error: "Document not found" });
   }
-  res.json({ 
+  res.json({
     ok: true,
     message: "Document deleted successfully",
   });
@@ -334,7 +356,7 @@ app.get("/api/documents/search/facets", requireApiKey, (req, res) => {
 // Get search suggestions (autocomplete)
 app.get("/api/documents/search/suggestions", requireApiKey, (req, res) => {
   const { prefix, limit } = req.query;
-  const suggestions = getSearchSuggestions(prefix || '', parseInt(limit) || 10);
+  const suggestions = getSearchSuggestions(prefix || "", parseInt(limit) || 10);
   res.json({ suggestions });
 });
 
@@ -353,7 +375,7 @@ app.post("/api/documents/search/export", requireApiKey, (req, res) => {
 app.get("/api/documents/:id/similar", requireApiKey, (req, res) => {
   try {
     const { similarityType } = req.query;
-    const similar = getSimilarDocuments(req.params.id, similarityType || 'size');
+    const similar = getSimilarDocuments(req.params.id, similarityType || "size");
     res.json({ similar });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -367,8 +389,11 @@ app.get("/api/export/documents/json", requireApiKey, (req, res) => {
   try {
     const documents = listDocuments();
     const json = exportDocumentsAsJSON(documents);
-    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('documents', 'json')}"`);
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${generateExportFileName("documents", "json")}"`
+    );
+    res.setHeader("Content-Type", "application/json");
     res.json(json);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -380,8 +405,11 @@ app.get("/api/export/documents/csv", requireApiKey, (req, res) => {
   try {
     const documents = listDocuments();
     const csv = exportDocumentsAsCSV(documents);
-    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('documents', 'csv')}"`);
-    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${generateExportFileName("documents", "csv")}"`
+    );
+    res.setHeader("Content-Type", "text/csv");
     res.send(csv);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -393,8 +421,11 @@ app.get("/api/export/documents/text", requireApiKey, (req, res) => {
   try {
     const documents = listDocuments();
     const text = exportDocumentsAsText(documents);
-    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('documents', 'txt')}"`);
-    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${generateExportFileName("documents", "txt")}"`
+    );
+    res.setHeader("Content-Type", "text/plain");
     res.send(text);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -406,8 +437,11 @@ app.get("/api/export/conversations/json", requireApiKey, (req, res) => {
   try {
     const conversations = getAllConversations();
     const json = exportConversationsAsJSON(conversations);
-    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('conversations', 'json')}"`);
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${generateExportFileName("conversations", "json")}"`
+    );
+    res.setHeader("Content-Type", "application/json");
     res.json(json);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -419,8 +453,11 @@ app.get("/api/export/conversations/csv", requireApiKey, (req, res) => {
   try {
     const conversations = getAllConversations();
     const csv = exportConversationsAsCSV(conversations);
-    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('conversations', 'csv')}"`);
-    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${generateExportFileName("conversations", "csv")}"`
+    );
+    res.setHeader("Content-Type", "text/csv");
     res.send(csv);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -433,8 +470,11 @@ app.get("/api/export/conversations/:sessionId/json", requireApiKey, (req, res) =
     const { sessionId } = req.params;
     const messages = getConversation(sessionId);
     const json = exportConversationWithMessagesAsJSON(sessionId, messages);
-    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName(`conversation-${sessionId}`, 'json')}"`);
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${generateExportFileName(`conversation-${sessionId}`, "json")}"`
+    );
+    res.setHeader("Content-Type", "application/json");
     res.json(json);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -447,8 +487,11 @@ app.get("/api/export/conversations/:sessionId/text", requireApiKey, (req, res) =
     const { sessionId } = req.params;
     const messages = getConversation(sessionId);
     const text = exportConversationAsText(sessionId, messages);
-    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName(`conversation-${sessionId}`, 'txt')}"`);
-    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${generateExportFileName(`conversation-${sessionId}`, "txt")}"`
+    );
+    res.setHeader("Content-Type", "text/plain");
     res.send(text);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -459,8 +502,11 @@ app.get("/api/export/conversations/:sessionId/text", requireApiKey, (req, res) =
 app.get("/api/export/database/full", requireApiKey, (req, res) => {
   try {
     const json = exportFullDatabaseAsJSON();
-    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('database-full', 'json')}"`);
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${generateExportFileName("database-full", "json")}"`
+    );
+    res.setHeader("Content-Type", "application/json");
     res.json(json);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -486,11 +532,11 @@ app.get("/api/conversations", requireApiKey, (_req, res) => {
 app.delete("/api/conversations/:sessionId", requireApiKey, (req, res) => {
   const { sessionId } = req.params;
   const deleted = deleteConversation(sessionId);
-  
+
   if (!deleted) {
     return res.status(404).json({ error: "Conversation not found" });
   }
-  
+
   res.json({ ok: true, message: "Conversation deleted successfully" });
 });
 
@@ -505,6 +551,11 @@ app.get("/api/conversations/stats/overview", requireApiKey, (_req, res) => {
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error(err);
+
+  // Handle Zod validation errors
+  if (err.name === 'ZodError') {
+    return res.status(400).json(formatValidationError(err));
+  }
 
   // CORS errors should be handled by cors() middleware, but if we get here,
   // ensure the response has CORS headers so browser doesn't block it
@@ -522,18 +573,18 @@ app.use((err, req, res, next) => {
     console.error("❌ Pinecone Connection Error:", {
       message: err.message,
       cause: err.cause?.message,
-      code: err.cause?.code
+      code: err.cause?.code,
     });
-    
+
     // Check for common causes
     if (err.cause?.code === "UNABLE_TO_GET_ISSUER_CERT_LOCALLY") {
       return res.status(503).json({
-        error: "Cannot connect to Pinecone. Check your PINECONE_API_KEY and network connection."
+        error: "Cannot connect to Pinecone. Check your PINECONE_API_KEY and network connection.",
       });
     }
-    
+
     return res.status(503).json({
-      error: "Pinecone service unavailable. Please try again later."
+      error: "Pinecone service unavailable. Please try again later.",
     });
   }
 

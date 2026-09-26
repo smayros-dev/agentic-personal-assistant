@@ -30,7 +30,7 @@ const getOrCreateSessionId = () => {
 
 const getOrCreateModel = () => {
   const stored = localStorage.getItem(MODEL_STORAGE_KEY);
-  return stored || "qwen3.6:latest";  // Match actual Ollama model name
+  return stored || "qwen3.6:latest"; // Match actual Ollama model name
 };
 
 const setStoredModel = (model) => {

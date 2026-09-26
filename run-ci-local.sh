@@ -218,12 +218,11 @@ cd ..
 
 echo ""
 echo "🎭 Running E2E tests (Playwright)..."
-if cd client && npm run test:e2e 2>&1 | tail -20; then
+if (cd client && npm run test:e2e 2>&1 | tail -20); then
   print_success "E2E tests passed"
 else
   print_failure "E2E tests failed (this is optional)"
 fi
-cd ..
 
 # Cleanup
 echo ""

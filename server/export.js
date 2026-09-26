@@ -3,9 +3,9 @@
  * Supports JSON, CSV, and text formats
  */
 
-import { listDocuments, getDocumentStats } from './documents.js';
-import { getAllConversations, getConversation } from './chatHistory.js';
-import { advancedSearch } from './advancedSearch.js';
+import { listDocuments, getDocumentStats } from "./documents.js";
+import { getAllConversations, getConversation } from "./chatHistory.js";
+import { advancedSearch } from "./advancedSearch.js";
 
 /**
  * Export documents as JSON
@@ -15,8 +15,8 @@ import { advancedSearch } from './advancedSearch.js';
 export function exportDocumentsAsJSON(documents) {
   return {
     exportedAt: new Date().toISOString(),
-    format: 'JSON',
-    type: 'documents',
+    format: "JSON",
+    type: "documents",
     stats: {
       totalDocuments: documents.length,
       totalSize: documents.reduce((sum, d) => sum + (d.fileSize || 0), 0),
@@ -32,8 +32,8 @@ export function exportDocumentsAsJSON(documents) {
  * @returns {string} CSV string
  */
 export function exportDocumentsAsCSV(documents) {
-  const headers = ['ID', 'File Name', 'File Size (bytes)', 'Page Count', 'Uploaded At'];
-  const rows = documents.map(doc => [
+  const headers = ["ID", "File Name", "File Size (bytes)", "Page Count", "Uploaded At"];
+  const rows = documents.map((doc) => [
     doc.id,
     `"${doc.fileName.replace(/"/g, '""')}"`, // Escape quotes in CSV
     doc.fileSize || 0,
@@ -41,7 +41,7 @@ export function exportDocumentsAsCSV(documents) {
     doc.uploadedAt,
   ]);
 
-  const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+  const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
   return csv;
 }
 
@@ -57,18 +57,18 @@ export function exportDocumentsAsText(documents) {
     totalPages: documents.reduce((sum, d) => sum + (d.pageCount || 0), 0),
   };
 
-  let text = '═══════════════════════════════════════════════════════\n';
-  text += '           DOCUMENT EXPORT REPORT\n';
-  text += '═══════════════════════════════════════════════════════\n\n';
+  let text = "═══════════════════════════════════════════════════════\n";
+  text += "           DOCUMENT EXPORT REPORT\n";
+  text += "═══════════════════════════════════════════════════════\n\n";
   text += `Export Date: ${new Date().toISOString()}\n\n`;
 
-  text += 'STATISTICS:\n';
+  text += "STATISTICS:\n";
   text += `  • Total Documents: ${stats.totalDocuments}\n`;
   text += `  • Total Size: ${formatBytes(stats.totalSize)}\n`;
   text += `  • Total Pages: ${stats.totalPages}\n\n`;
 
-  text += 'DOCUMENTS:\n';
-  text += '─────────────────────────────────────────────────────\n';
+  text += "DOCUMENTS:\n";
+  text += "─────────────────────────────────────────────────────\n";
 
   documents.forEach((doc, index) => {
     text += `\n${index + 1}. ${doc.fileName}\n`;
@@ -78,7 +78,7 @@ export function exportDocumentsAsText(documents) {
     text += `   Uploaded: ${new Date(doc.uploadedAt).toLocaleString()}\n`;
   });
 
-  text += '\n═══════════════════════════════════════════════════════\n';
+  text += "\n═══════════════════════════════════════════════════════\n";
   return text;
 }
 
@@ -90,8 +90,8 @@ export function exportDocumentsAsText(documents) {
 export function exportConversationsAsJSON(conversations) {
   return {
     exportedAt: new Date().toISOString(),
-    format: 'JSON',
-    type: 'conversations',
+    format: "JSON",
+    type: "conversations",
     stats: {
       totalConversations: conversations.length,
       totalMessages: conversations.reduce((sum, c) => sum + (c.messageCount || 0), 0),
@@ -106,15 +106,15 @@ export function exportConversationsAsJSON(conversations) {
  * @returns {string} CSV string
  */
 export function exportConversationsAsCSV(conversations) {
-  const headers = ['Session ID', 'Created At', 'Updated At', 'Message Count'];
-  const rows = conversations.map(conv => [
+  const headers = ["Session ID", "Created At", "Updated At", "Message Count"];
+  const rows = conversations.map((conv) => [
     conv.sessionId,
     conv.createdAt,
     conv.updatedAt,
     conv.messageCount || 0,
   ]);
 
-  const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+  const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
   return csv;
 }
 
@@ -127,8 +127,8 @@ export function exportConversationsAsCSV(conversations) {
 export function exportConversationWithMessagesAsJSON(sessionId, messages) {
   return {
     exportedAt: new Date().toISOString(),
-    format: 'JSON',
-    type: 'conversation_transcript',
+    format: "JSON",
+    type: "conversation_transcript",
     sessionId,
     messageCount: messages.length,
     messages,
@@ -142,14 +142,14 @@ export function exportConversationWithMessagesAsJSON(sessionId, messages) {
  * @returns {string} Plain text transcript
  */
 export function exportConversationAsText(sessionId, messages) {
-  let text = '═══════════════════════════════════════════════════════\n';
-  text += '             CONVERSATION TRANSCRIPT\n';
-  text += '═══════════════════════════════════════════════════════\n\n';
+  let text = "═══════════════════════════════════════════════════════\n";
+  text += "             CONVERSATION TRANSCRIPT\n";
+  text += "═══════════════════════════════════════════════════════\n\n";
   text += `Session ID: ${sessionId}\n`;
   text += `Exported: ${new Date().toISOString()}\n`;
   text += `Total Messages: ${messages.length}\n\n`;
 
-  text += '─────────────────────────────────────────────────────\n';
+  text += "─────────────────────────────────────────────────────\n";
 
   messages.forEach((msg, index) => {
     const timestamp = new Date(msg.createdAt).toLocaleString();
@@ -159,7 +159,7 @@ export function exportConversationAsText(sessionId, messages) {
       text += `Model: ${msg.model}\n`;
     }
     text += `\n${msg.content}\n`;
-    text += '─────────────────────────────────────────────────────\n';
+    text += "─────────────────────────────────────────────────────\n";
   });
 
   return text;
@@ -173,9 +173,9 @@ export function exportConversationAsText(sessionId, messages) {
 export function exportSearchResultsAsJSON(searchResults) {
   return {
     exportedAt: new Date().toISOString(),
-    format: 'JSON',
-    type: 'search_results',
-    query: searchResults.query || '',
+    format: "JSON",
+    type: "search_results",
+    query: searchResults.query || "",
     pagination: searchResults.pagination || {},
     results: searchResults.results || [],
   };
@@ -187,16 +187,16 @@ export function exportSearchResultsAsJSON(searchResults) {
  * @returns {string} CSV string
  */
 export function exportSearchResultsAsCSV(results) {
-  const headers = ['File Name', 'Size (bytes)', 'Pages', 'Uploaded At', 'Relevance'];
+  const headers = ["File Name", "Size (bytes)", "Pages", "Uploaded At", "Relevance"];
   const rows = results.map((doc, index) => [
     `"${doc.fileName.replace(/"/g, '""')}"`,
     doc.fileSize || 0,
     doc.pageCount || 0,
     doc.uploadedAt,
-    (100 - (index * 5)).toFixed(0), // Simple relevance score
+    (100 - index * 5).toFixed(0), // Simple relevance score
   ]);
 
-  const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+  const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
   return csv;
 }
 
@@ -210,9 +210,9 @@ export function exportFullDatabaseAsJSON() {
 
   return {
     exportedAt: new Date().toISOString(),
-    format: 'JSON',
-    type: 'full_database_dump',
-    version: '1.0',
+    format: "JSON",
+    type: "full_database_dump",
+    version: "1.0",
     stats: {
       documents: {
         count: documents.length,
@@ -234,11 +234,11 @@ export function exportFullDatabaseAsJSON() {
  * @returns {string} Formatted size
  */
 function formatBytes(bytes) {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return "0 Bytes";
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const sizes = ["Bytes", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
 }
 
 /**
@@ -248,7 +248,7 @@ function formatBytes(bytes) {
  * @returns {string} File name
  */
 export function generateExportFileName(type, format) {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-  const extension = format === 'json' ? 'json' : format === 'csv' ? 'csv' : 'txt';
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").split("T")[0];
+  const extension = format === "json" ? "json" : format === "csv" ? "csv" : "txt";
   return `${type}-export-${timestamp}.${extension}`;
 }

@@ -3,8 +3,8 @@
  * Tracks uploaded documents and their metadata
  */
 
-import db from './db.js';
-import { v4 as uuid } from 'uuid';
+import db from "./db.js";
+import { v4 as uuid } from "uuid";
 
 /**
  * Add document metadata after ingestion
@@ -16,15 +16,15 @@ export function addDocument(id, metadata) {
     INSERT INTO documents (id, fileName, fileSize, pageCount, uploadedAt)
     VALUES (?, ?, ?, ?, ?)
   `);
-  
+
   stmt.run(
     id,
-    metadata.fileName || 'Unknown',
+    metadata.fileName || "Unknown",
     metadata.size || 0,
     metadata.pageCount || 0,
     new Date().toISOString()
   );
-  
+
   return getDocument(id);
 }
 
@@ -34,7 +34,7 @@ export function addDocument(id, metadata) {
  * @returns {Object|null} Document metadata or null
  */
 export function getDocument(id) {
-  const stmt = db.prepare('SELECT * FROM documents WHERE id = ?');
+  const stmt = db.prepare("SELECT * FROM documents WHERE id = ?");
   return stmt.get(id) || null;
 }
 
@@ -43,9 +43,7 @@ export function getDocument(id) {
  * @returns {Array} Array of document metadata
  */
 export function listDocuments() {
-  const stmt = db.prepare(
-    'SELECT * FROM documents ORDER BY uploadedAt DESC'
-  );
+  const stmt = db.prepare("SELECT * FROM documents ORDER BY uploadedAt DESC");
   return stmt.all();
 }
 
@@ -55,7 +53,7 @@ export function listDocuments() {
  * @returns {boolean} True if deleted, false if not found
  */
 export function deleteDocument(id) {
-  const stmt = db.prepare('DELETE FROM documents WHERE id = ?');
+  const stmt = db.prepare("DELETE FROM documents WHERE id = ?");
   const result = stmt.run(id);
   return result.changes > 0;
 }
@@ -80,14 +78,14 @@ export function searchDocuments(query) {
  * @returns {Object} Statistics
  */
 export function getDocumentStats() {
-  const countStmt = db.prepare('SELECT COUNT(*) as count FROM documents');
-  const sizeStmt = db.prepare('SELECT SUM(fileSize) as totalSize FROM documents');
-  const chunksStmt = db.prepare('SELECT SUM(pageCount) as totalChunks FROM documents');
-  
+  const countStmt = db.prepare("SELECT COUNT(*) as count FROM documents");
+  const sizeStmt = db.prepare("SELECT SUM(fileSize) as totalSize FROM documents");
+  const chunksStmt = db.prepare("SELECT SUM(pageCount) as totalChunks FROM documents");
+
   const count = countStmt.get();
   const size = sizeStmt.get();
   const chunks = chunksStmt.get();
-  
+
   return {
     totalDocuments: count?.count || 0,
     totalSize: size?.totalSize || 0,
@@ -99,6 +97,5 @@ export function getDocumentStats() {
  * Clear all documents (for testing)
  */
 export function clearDocuments() {
-  db.prepare('DELETE FROM documents').run();
+  db.prepare("DELETE FROM documents").run();
 }
-

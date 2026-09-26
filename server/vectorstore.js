@@ -79,9 +79,7 @@ export async function initializeVectorStore() {
     const collectionName = process.env.CHROMA_COLLECTION;
 
     if (!chromaUrl) {
-      throw new Error(
-        "Missing CHROMA_URL. Set it in server/.env (e.g., http://localhost:8000)"
-      );
+      throw new Error("Missing CHROMA_URL. Set it in server/.env (e.g., http://localhost:8000)");
     }
     if (!collectionName) {
       throw new Error("Missing CHROMA_COLLECTION in server/.env");
@@ -174,15 +172,21 @@ export async function searchVectorStore(query, topK = 5) {
 export function getVectorStoreConfig() {
   return {
     provider: VECTOR_DB,
-    pinecone: VECTOR_DB === "pinecone" ? {
-      apiKey: process.env.PINECONE_API_KEY ? "***" : "NOT SET",
-      index: process.env.PINECONE_INDEX || "NOT SET",
-    } : null,
-    chroma: VECTOR_DB === "chroma" ? {
-      url: process.env.CHROMA_URL || "NOT SET",
-      collection: process.env.CHROMA_COLLECTION || "NOT SET",
-      embeddingModel: process.env.EMBEDDING_MODEL || "nomic-embed-text",
-      ollamaUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
-    } : null,
+    pinecone:
+      VECTOR_DB === "pinecone"
+        ? {
+            apiKey: process.env.PINECONE_API_KEY ? "***" : "NOT SET",
+            index: process.env.PINECONE_INDEX || "NOT SET",
+          }
+        : null,
+    chroma:
+      VECTOR_DB === "chroma"
+        ? {
+            url: process.env.CHROMA_URL || "NOT SET",
+            collection: process.env.CHROMA_COLLECTION || "NOT SET",
+            embeddingModel: process.env.EMBEDDING_MODEL || "nomic-embed-text",
+            ollamaUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
+          }
+        : null,
   };
 }
