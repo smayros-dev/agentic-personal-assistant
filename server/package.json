@@ -29,6 +29,7 @@
     "@langchain/pinecone": "^1.0.1",
     "@langchain/textsplitters": "^0.1.0",
     "@pinecone-database/pinecone": "^5.1.2",
+    "better-sqlite3": "^13.0.3",
     "chromadb": "^3.5.0",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
@@ -38,10 +39,12 @@
     "morgan": "^1.10.1",
     "multer": "^2.0.0",
     "pdf-parse": "^1.1.1",
+    "uuid": "^14.0.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@types/better-sqlite3": "^9.6.0",
     "@vitest/ui": "^5.0.2",
     "c8": "^12.0.0",
     "eslint": "^9.17.0",

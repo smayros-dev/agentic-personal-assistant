@@ -18,6 +18,13 @@ import {
   searchDocuments,
   getDocumentStats,
 } from "./documents.js";
+import {
+  saveMessage,
+  getConversation,
+  getAllConversations,
+  deleteConversation,
+  getConversationStats,
+} from "./chatHistory.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -134,6 +141,11 @@ app.post("/api/chat", requireApiKey, async (req, res, next) => {
       return res.status(400).json({ error: "Invalid model" });
     }
 
+    // Save user message to database
+    if (sessionId) {
+      saveMessage(sessionId, "user", message, model);
+    }
+
     const answer = await runAgent({ message, sessionId, model });
 
     const output = answer?.output || answer?.text || "";
@@ -143,6 +155,11 @@ app.post("/api/chat", requireApiKey, async (req, res, next) => {
         answer:
           "I apologize, but I couldn't generate a proper response. Could you please rephrase your question?",
       });
+    }
+
+    // Save assistant message to database
+    if (sessionId) {
+      saveMessage(sessionId, "assistant", output, model);
     }
 
     res.json({ answer: output });
@@ -248,6 +265,39 @@ app.delete("/api/documents/:id", requireApiKey, (req, res) => {
 // Document statistics
 app.get("/api/documents/stats/overview", requireApiKey, (_req, res) => {
   const stats = getDocumentStats();
+  res.json(stats);
+});
+
+// --- CHAT HISTORY ENDPOINTS ---
+
+// Get conversation history for a session
+app.get("/api/conversations/:sessionId", requireApiKey, (req, res) => {
+  const { sessionId } = req.params;
+  const messages = getConversation(sessionId);
+  res.json({ messages });
+});
+
+// Get all conversations
+app.get("/api/conversations", requireApiKey, (_req, res) => {
+  const conversations = getAllConversations();
+  res.json({ conversations });
+});
+
+// Delete conversation
+app.delete("/api/conversations/:sessionId", requireApiKey, (req, res) => {
+  const { sessionId } = req.params;
+  const deleted = deleteConversation(sessionId);
+  
+  if (!deleted) {
+    return res.status(404).json({ error: "Conversation not found" });
+  }
+  
+  res.json({ ok: true, message: "Conversation deleted successfully" });
+});
+
+// Get conversation statistics
+app.get("/api/conversations/stats/overview", requireApiKey, (_req, res) => {
+  const stats = getConversationStats();
   res.json(stats);
 });
 

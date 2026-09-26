@@ -1,11 +1,10 @@
 /**
- * Simple document management system
+ * Document management system with SQLite persistence
  * Tracks uploaded documents and their metadata
  */
 
-// In-memory store for document metadata
-// In production, this would be a database
-const documents = new Map();
+import db from './db.js';
+import { v4 as uuid } from 'uuid';
 
 /**
  * Add document metadata after ingestion
@@ -13,11 +12,20 @@ const documents = new Map();
  * @param {Object} metadata - Document metadata
  */
 export function addDocument(id, metadata) {
-  documents.set(id, {
+  const stmt = db.prepare(`
+    INSERT INTO documents (id, fileName, fileSize, pageCount, uploadedAt)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  
+  stmt.run(
     id,
-    ...metadata,
-    uploadedAt: new Date().toISOString(),
-  });
+    metadata.fileName || 'Unknown',
+    metadata.size || 0,
+    metadata.pageCount || 0,
+    new Date().toISOString()
+  );
+  
+  return getDocument(id);
 }
 
 /**
@@ -26,7 +34,8 @@ export function addDocument(id, metadata) {
  * @returns {Object|null} Document metadata or null
  */
 export function getDocument(id) {
-  return documents.get(id) || null;
+  const stmt = db.prepare('SELECT * FROM documents WHERE id = ?');
+  return stmt.get(id) || null;
 }
 
 /**
@@ -34,9 +43,10 @@ export function getDocument(id) {
  * @returns {Array} Array of document metadata
  */
 export function listDocuments() {
-  return Array.from(documents.values()).sort((a, b) => 
-    new Date(b.uploadedAt) - new Date(a.uploadedAt)
+  const stmt = db.prepare(
+    'SELECT * FROM documents ORDER BY uploadedAt DESC'
   );
+  return stmt.all();
 }
 
 /**
@@ -45,7 +55,9 @@ export function listDocuments() {
  * @returns {boolean} True if deleted, false if not found
  */
 export function deleteDocument(id) {
-  return documents.delete(id);
+  const stmt = db.prepare('DELETE FROM documents WHERE id = ?');
+  const result = stmt.run(id);
+  return result.changes > 0;
 }
 
 /**
@@ -54,12 +66,13 @@ export function deleteDocument(id) {
  * @returns {Array} Matching documents
  */
 export function searchDocuments(query) {
-  const lowerQuery = query.toLowerCase();
-  return Array.from(documents.values()).filter(doc => 
-    doc.fileName?.toLowerCase().includes(lowerQuery) ||
-    doc.source?.toLowerCase().includes(lowerQuery) ||
-    doc.description?.toLowerCase().includes(lowerQuery)
-  );
+  const lowerQuery = `%${query.toLowerCase()}%`;
+  const stmt = db.prepare(`
+    SELECT * FROM documents 
+    WHERE LOWER(fileName) LIKE ? 
+    ORDER BY uploadedAt DESC
+  `);
+  return stmt.all(lowerQuery);
 }
 
 /**
@@ -67,11 +80,18 @@ export function searchDocuments(query) {
  * @returns {Object} Statistics
  */
 export function getDocumentStats() {
-  const docs = Array.from(documents.values());
+  const countStmt = db.prepare('SELECT COUNT(*) as count FROM documents');
+  const sizeStmt = db.prepare('SELECT SUM(fileSize) as totalSize FROM documents');
+  const chunksStmt = db.prepare('SELECT SUM(pageCount) as totalChunks FROM documents');
+  
+  const count = countStmt.get();
+  const size = sizeStmt.get();
+  const chunks = chunksStmt.get();
+  
   return {
-    totalDocuments: docs.length,
-    totalSize: docs.reduce((sum, doc) => sum + (doc.size || 0), 0),
-    totalChunks: docs.reduce((sum, doc) => sum + (doc.chunkCount || 0), 0),
+    totalDocuments: count?.count || 0,
+    totalSize: size?.totalSize || 0,
+    totalChunks: chunks?.totalChunks || 0,
   };
 }
 
@@ -79,5 +99,6 @@ export function getDocumentStats() {
  * Clear all documents (for testing)
  */
 export function clearDocuments() {
-  documents.clear();
+  db.prepare('DELETE FROM documents').run();
 }
+
