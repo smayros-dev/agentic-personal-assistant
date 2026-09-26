@@ -23,12 +23,22 @@ export const ingestData = async (filePath, originalName) => {
   const chunks = await splitter.splitDocuments(docs);
   console.log(`✓ Created ${chunks.length} chunks`);
 
-  // Add metadata to chunks
+  // Add metadata to chunks and ensure metadata values are serializable
   const sourceName = originalName || path.basename(filePath);
   const ingestedAt = new Date().toISOString();
   chunks.forEach((chunk) => {
+    // Clean existing metadata to ensure Chroma compatibility
+    const cleanedMetadata = {};
+    for (const [key, value] of Object.entries(chunk.metadata || {})) {
+      // Only keep string/number/boolean values for Chroma compatibility
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        cleanedMetadata[key] = value;
+      }
+    }
+    
+    // Add our own metadata
     chunk.metadata = {
-      ...chunk.metadata,
+      ...cleanedMetadata,
       source: sourceName,
       ingestedAt,
       fileName: sourceName,
