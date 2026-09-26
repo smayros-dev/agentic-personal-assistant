@@ -21,14 +21,14 @@ cd agentic-personal-assistant
 # Copier la configuration par défaut
 cp server/.env.example server/.env
 
-# Démarrer tous les services
+# OPTION A: Démarrer tous les services (production-like)
 docker-compose up
 
-# Attendez ~5 minutes (Ollama pull nomic-embed-text + qwen2:7b)
-# ✓ Ollama:   http://localhost:11434
-# ✓ Chroma:   http://localhost:8000
-# ✓ Server:   http://localhost:3001
-# ✓ Frontend: http://localhost:5173
+# OPTION B: Démarrer SEULEMENT l'infrastructure pour le développement
+# (Serveur + Frontend en local avec hot-reload)
+docker-compose -f docker-compose.dev.yml up
+# Puis dans d'autres terminaux: npm run dev (server) + npm run dev (client)
+# → Voir DEVELOPMENT_MODE.md pour détails
 ```
 
 ### 3️⃣ Utiliser l'app
@@ -189,6 +189,29 @@ file: <PDF file>
 
 # → { success: true, message: "Ingested 42 chunks" }
 ```
+
+---
+
+## 🛠️ Development vs Production Modes
+
+### Production Mode: `docker-compose.yml`
+```bash
+docker-compose up
+# Démarre: Ollama + Chroma + Server (Docker) + Frontend (npm dev)
+# 👍 Recommandé pour: Testing complet, démos, CI/CD
+```
+
+### Development Mode: `docker-compose.dev.yml`
+```bash
+docker-compose -f docker-compose.dev.yml up
+# Démarre: Ollama + Chroma (Docker seulement)
+# Dans d'autres terminaux:
+#   cd server && npm run dev    (hot-reload)
+#   cd client && npm run dev    (hot-reload)
+# 👍 Recommandé pour: Développement actif, debugging
+```
+
+**Voir [`DEVELOPMENT_MODE.md`](./DEVELOPMENT_MODE.md) pour le workflow complet**
 
 ---
 
