@@ -25,6 +25,15 @@ import {
   deleteConversation,
   getConversationStats,
 } from "./chatHistory.js";
+import {
+  advancedSearch,
+  searchByDateRange,
+  searchByFileSizeRange,
+  getSearchFacets,
+  getSearchSuggestions,
+  exportSearchResults,
+  getSimilarDocuments,
+} from "./advancedSearch.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -266,6 +275,76 @@ app.delete("/api/documents/:id", requireApiKey, (req, res) => {
 app.get("/api/documents/stats/overview", requireApiKey, (_req, res) => {
   const stats = getDocumentStats();
   res.json(stats);
+});
+
+// --- ADVANCED SEARCH ENDPOINTS ---
+
+// Advanced search with filters, sorting, pagination
+app.post("/api/documents/search/advanced", requireApiKey, (req, res) => {
+  try {
+    const { query, sortBy, sortOrder, limit, offset } = req.body;
+    const results = advancedSearch({ query, sortBy, sortOrder, limit, offset });
+    res.json(results);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Search by date range
+app.post("/api/documents/search/by-date", requireApiKey, (req, res) => {
+  try {
+    const { startDate, endDate } = req.body;
+    const results = searchByDateRange({ startDate, endDate });
+    res.json({ results, count: results.length });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Search by file size range
+app.post("/api/documents/search/by-size", requireApiKey, (req, res) => {
+  try {
+    const { minSize, maxSize } = req.body;
+    const results = searchByFileSizeRange({ minSize, maxSize });
+    res.json({ results, count: results.length });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Get search facets
+app.get("/api/documents/search/facets", requireApiKey, (req, res) => {
+  const facets = getSearchFacets();
+  res.json(facets);
+});
+
+// Get search suggestions (autocomplete)
+app.get("/api/documents/search/suggestions", requireApiKey, (req, res) => {
+  const { prefix, limit } = req.query;
+  const suggestions = getSearchSuggestions(prefix || '', parseInt(limit) || 10);
+  res.json({ suggestions });
+});
+
+// Export search results
+app.post("/api/documents/search/export", requireApiKey, (req, res) => {
+  try {
+    const { query, sortBy, sortOrder } = req.body;
+    const exportData = exportSearchResults({ query, sortBy, sortOrder });
+    res.json(exportData);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Get similar documents
+app.get("/api/documents/:id/similar", requireApiKey, (req, res) => {
+  try {
+    const { similarityType } = req.query;
+    const similar = getSimilarDocuments(req.params.id, similarityType || 'size');
+    res.json({ similar });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // --- CHAT HISTORY ENDPOINTS ---
