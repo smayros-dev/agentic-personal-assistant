@@ -8,7 +8,7 @@ import { PineconeStore } from "@langchain/pinecone";
 import { PineconeEmbeddings } from "@langchain/pinecone";
 import { Pinecone as PineconeClient } from "@pinecone-database/pinecone";
 import { Chroma } from "@langchain/community/vectorstores/chroma";
-import { OllamaEmbeddings } from "@langchain/community/embeddings/ollama";
+import { OllamaEmbeddings } from "@langchain/ollama";
 
 const VECTOR_DB = process.env.VECTOR_DB || "chroma"; // Default to chroma (local)
 
