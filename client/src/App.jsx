@@ -28,7 +28,7 @@ const getOrCreateSessionId = () => {
 };
 
 const getOrCreateModel = () => {
-  return localStorage.getItem(MODEL_STORAGE_KEY) || "";
+  return localStorage.getItem(MODEL_STORAGE_KEY) || "qwen3.6";
 };
 
 const setStoredModel = (model) => {
@@ -179,24 +179,27 @@ function App() {
         </div>
         <div className="headerControls">
           <div className="modelSelector">
-            <label htmlFor="model-select">Model:</label>
-            <select
-              id="model-select"
+            <label htmlFor="model-input">Model:</label>
+            <input
+              id="model-input"
+              type="text"
+              placeholder="e.g., qwen3.6, gemma4:12b"
               value={selectedModel}
               onChange={(e) => {
-                setSelectedModel(e.target.value);
-                setStoredModel(e.target.value);
+                const value = e.target.value;
+                setSelectedModel(value);
+                setStoredModel(value);
               }}
-              disabled={loadingModels || availableModels.length === 0}
-            >
-              <option value="">Default</option>
+              list="model-list"
+              className="modelInput"
+              title="Type a model name or select from available models"
+            />
+            <datalist id="model-list">
               {availableModels.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
+                <option key={model} value={model} />
               ))}
-            </select>
-            {loadingModels && <span className="loadingIndicator">Loading...</span>}
+            </datalist>
+            {loadingModels && <span className="loadingIndicator">Loading models...</span>}
           </div>
           <button
             className="clearButton"
