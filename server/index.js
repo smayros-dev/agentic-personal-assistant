@@ -1,16 +1,59 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import morgan from "morgan";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 import os from "node:os";
 import path from "node:path";
 import { unlink } from "node:fs/promises";
-import { runAgent } from "./agent.js";
+import { runAgent, listOllamaModels, LLMUnavailableError } from "./agent.js";
 import { ingestData } from "./ingest.js";
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 3001;
+
+// --- Logging ---
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+
+// --- CORS: restrict to an explicit allow-list (comma-separated CORS_ORIGIN env var) ---
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser requests (no origin header, e.g. curl/server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+  })
+);
+
+// --- Body parsing with a sane size limit ---
+app.use(express.json({ limit: "1mb" }));
+
+// --- Optional API key auth: only enforced if API_KEY is set in the environment ---
+const apiKey = process.env.API_KEY;
+const requireApiKey = (req, res, next) => {
+  if (!apiKey) return next();
+  if (req.get("x-api-key") === apiKey) return next();
+  return res.status(401).json({ error: "Unauthorized" });
+};
+
+// --- Rate limiting ---
+const limiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
+  max: Number(process.env.RATE_LIMIT_MAX) || 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
+app.use("/api", limiter);
 
 // Multer for PDF uploads
 const upload = multer({
@@ -30,13 +73,42 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 },
 });
 
-// Chat endpoint
-app.post("/api/chat", async (req, res) => {
-  try {
-    const { message, sessionId } = req.body;
-    if (!message) return res.status(400).json({ error: "Message required" });
+const MAX_MESSAGE_LENGTH = 4000;
 
-    const answer = await runAgent({ message, sessionId });
+// Health check
+app.get("/healthz", (_req, res) => {
+  res.json({ status: "ok", uptime: process.uptime() });
+});
+
+// Lists models currently installed/pulled in the local Ollama instance,
+// so the client can offer a model picker.
+app.get("/api/models", requireApiKey, async (_req, res, next) => {
+  try {
+    const models = await listOllamaModels();
+    res.json({ models });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Chat endpoint
+app.post("/api/chat", requireApiKey, async (req, res, next) => {
+  try {
+    const { message, sessionId, model } = req.body;
+
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({ error: "Message required" });
+    }
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      return res
+        .status(400)
+        .json({ error: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)` });
+    }
+    if (model !== undefined && typeof model !== "string") {
+      return res.status(400).json({ error: "Invalid model" });
+    }
+
+    const answer = await runAgent({ message, sessionId, model });
 
     const output = answer?.output || answer?.text || "";
 
@@ -49,19 +121,18 @@ app.post("/api/chat", async (req, res) => {
 
     res.json({ answer: output });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // PDF ingestion endpoint
-app.post("/api/ingest", upload.single("file"), async (req, res) => {
+app.post("/api/ingest", requireApiKey, upload.single("file"), async (req, res, next) => {
   try {
     if (!req.file?.path) {
       return res.status(400).json({ error: "Missing PDF file" });
     }
 
-    await ingestData(req.file.path);
+    await ingestData(req.file.path, req.file.originalname);
     await unlink(req.file.path).catch(() => undefined);
 
     return res.json({ ok: true });
@@ -69,8 +140,27 @@ app.post("/api/ingest", upload.single("file"), async (req, res) => {
     if (req.file?.path) {
       await unlink(req.file.path).catch(() => undefined);
     }
-    return res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-app.listen(3001, () => console.log("🚀 Server running on port 3001"));
+// Centralized error handler: logs full details server-side, returns a
+// sanitized message to the client so internal error details never leak.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error(err);
+
+  if (err instanceof LLMUnavailableError) {
+    return res.status(503).json({ error: err.message });
+  }
+  if (err.message === "Only PDF files are allowed") {
+    return res.status(400).json({ error: err.message });
+  }
+  if (err.message?.startsWith("Origin")) {
+    return res.status(403).json({ error: "Not allowed by CORS" });
+  }
+
+  res.status(500).json({ error: "Internal server error" });
+});
+
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
