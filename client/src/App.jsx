@@ -28,7 +28,8 @@ const getOrCreateSessionId = () => {
 };
 
 const getOrCreateModel = () => {
-  return localStorage.getItem(MODEL_STORAGE_KEY) || "qwen3.6";
+  const stored = localStorage.getItem(MODEL_STORAGE_KEY);
+  return stored || "qwen3.6:latest";  // Match actual Ollama model name
 };
 
 const setStoredModel = (model) => {
@@ -179,26 +180,26 @@ function App() {
         </div>
         <div className="headerControls">
           <div className="modelSelector">
-            <label htmlFor="model-input">Model:</label>
-            <input
-              id="model-input"
-              type="text"
-              placeholder="e.g., qwen3.6, gemma4:12b"
+            <label htmlFor="model-select">Model:</label>
+            <select
+              id="model-select"
               value={selectedModel}
               onChange={(e) => {
                 const value = e.target.value;
                 setSelectedModel(value);
                 setStoredModel(value);
               }}
-              list="model-list"
-              className="modelInput"
-              title="Type a model name or select from available models"
-            />
-            <datalist id="model-list">
-              {availableModels.map((model) => (
-                <option key={model} value={model} />
-              ))}
-            </datalist>
+            >
+              {availableModels.length > 0 ? (
+                availableModels.map((model) => (
+                  <option key={model} value={model}>
+                    {model === "qwen3.6:latest" ? `${model} ⭐ (Default)` : model}
+                  </option>
+                ))
+              ) : (
+                <option value="qwen3.6">Loading models...</option>
+              )}
+            </select>
             {loadingModels && <span className="loadingIndicator">Loading models...</span>}
           </div>
           <button

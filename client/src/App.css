@@ -52,29 +52,19 @@
   color: rgba(255, 255, 255, 0.9);
   font-size: 13px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.modelSelector .modelInput {
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 13px;
-  cursor: text;
-  min-width: 180px;
-}
-
-.modelSelector .modelInput:focus {
-  outline: none;
-  border-color: rgba(100, 200, 255, 0.5);
+.modelSelector select:hover {
   background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 2px rgba(100, 200, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.modelSelector select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.modelSelector select:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(100, 200, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(100, 200, 255, 0.2);
 }
 
 .loadingIndicator {
