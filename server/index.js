@@ -17,7 +17,8 @@ const PORT = process.env.PORT || 3001;
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
 // --- CORS: restrict to an explicit allow-list (comma-separated CORS_ORIGIN env var) ---
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+// Default includes both localhost dev ports (5173 and 5174) for Vite flexibility
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
