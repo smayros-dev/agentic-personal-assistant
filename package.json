@@ -11,7 +11,11 @@
     "install:models": "bash ./install-models.sh",
     "install:models:default": "bash ./install-models.sh qwen2:7b mistral:7b neural-chat:7b nomic-embed-text:latest",
     "install:models:custom": "bash ./install-models.sh",
-    "list:models": "docker exec agentic-ollama-dev ollama list"
+    "list:models": "docker exec agentic-ollama-dev ollama list",
+    "test": "concurrently \"npm --prefix server run test:run\" \"npm --prefix client run test:run\"",
+    "test:server": "npm --prefix server run test:run",
+    "test:client": "npm --prefix client run test:run",
+    "test:coverage": "concurrently \"npm --prefix server run test:coverage\" \"npm --prefix client run test:coverage\""
   },
   "devDependencies": {
     "concurrently": "^9.2.0"

@@ -101,9 +101,16 @@ export function DocumentManager() {
   };
 
   return (
-    <div className="document-manager" style={{ marginTop: '20px', padding: '10px' }}>
+    <div className="document-manager" style={{ 
+      marginTop: '20px', 
+      padding: '16px',
+      backgroundColor: '#0f1419',
+      borderRadius: '12px',
+      border: '1px solid #1e2632',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+    }}>
       <div style={{ marginBottom: '20px' }}>
-        <h3>📄 Document Manager</h3>
+        <h3 style={{ color: '#60a5fa', marginTop: '0', fontSize: '18px', fontWeight: '600' }}>📄 Document Manager</h3>
         
         {/* Search Section */}
         <form onSubmit={handleSearch} style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
@@ -114,24 +121,30 @@ export function DocumentManager() {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
               flex: 1,
-              padding: '8px 12px',
-              borderRadius: '4px',
-              border: '1px solid #ddd',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: '1px solid #2d3f4f',
               fontSize: '14px',
+              backgroundColor: '#1a2332',
+              color: '#e0e0e0',
             }}
           />
           <button
             type="submit"
             style={{
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
+              padding: '10px 18px',
+              backgroundColor: '#3b82f6',
               color: 'white',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: '8px',
               cursor: 'pointer',
               fontSize: '14px',
+              fontWeight: '500',
+              transition: 'background-color 0.2s',
             }}
             disabled={loading}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
           >
             {loading ? 'Searching...' : 'Search'}
           </button>
@@ -143,14 +156,18 @@ export function DocumentManager() {
                 fetchDocuments();
               }}
               style={{
-                padding: '8px 16px',
-                backgroundColor: '#6c757d',
+                padding: '10px 18px',
+                backgroundColor: '#4b5563',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '8px',
                 cursor: 'pointer',
                 fontSize: '14px',
+                fontWeight: '500',
+                transition: 'background-color 0.2s',
               }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#5a6575'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#4b5563'}
             >
               Clear
             </button>
@@ -165,22 +182,23 @@ export function DocumentManager() {
               gridTemplateColumns: 'repeat(3, 1fr)',
               gap: '10px',
               marginBottom: '15px',
-              padding: '10px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
+              padding: '14px',
+              backgroundColor: '#1a2332',
+              borderRadius: '8px',
+              border: '1px solid #2d3f4f',
             }}
           >
-            <div>
-              <div style={{ fontSize: '12px', color: '#666' }}>Documents</div>
-              <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{stats.totalDocuments}</div>
+            <div style={{ padding: '10px', backgroundColor: '#0f4c81', borderRadius: '6px', textAlign: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#60a5fa', fontWeight: '500', marginBottom: '6px' }}>📄 Documents</div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#93c5fd' }}>{stats.totalDocuments}</div>
             </div>
-            <div>
-              <div style={{ fontSize: '12px', color: '#666' }}>Total Size</div>
-              <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{formatSize(stats.totalSize)}</div>
+            <div style={{ padding: '10px', backgroundColor: '#0f5f3f', borderRadius: '6px', textAlign: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#34d399', fontWeight: '500', marginBottom: '6px' }}>💾 Size</div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#6ee7b7' }}>{formatSize(stats.totalSize)}</div>
             </div>
-            <div>
-              <div style={{ fontSize: '12px', color: '#666' }}>Chunks</div>
-              <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{stats.totalChunks}</div>
+            <div style={{ padding: '10px', backgroundColor: '#5f4a0f', borderRadius: '6px', textAlign: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#fbbf24', fontWeight: '500', marginBottom: '6px' }}>🔗 Chunks</div>
+              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#fde047' }}>{stats.totalChunks}</div>
             </div>
           </div>
         )}
@@ -189,12 +207,13 @@ export function DocumentManager() {
         {error && (
           <div
             style={{
-              padding: '10px 12px',
-              backgroundColor: '#f8d7da',
-              color: '#721c24',
-              borderRadius: '4px',
-              marginBottom: '10px',
+              padding: '12px 14px',
+              backgroundColor: '#7f1d1d',
+              color: '#fecaca',
+              borderRadius: '6px',
+              marginBottom: '12px',
               fontSize: '14px',
+              border: '1px solid #dc2626',
             }}
           >
             ❌ {error}
@@ -203,8 +222,8 @@ export function DocumentManager() {
 
         {/* Loading State */}
         {loading && (
-          <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
-            Loading documents...
+          <div style={{ textAlign: 'center', padding: '20px', color: '#93c5fd', fontSize: '14px' }}>
+            ⏳ Loading documents...
           </div>
         )}
 
@@ -213,20 +232,21 @@ export function DocumentManager() {
           <div
             style={{
               padding: '20px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
+              backgroundColor: '#1a2332',
+              borderRadius: '6px',
               textAlign: 'center',
-              color: '#666',
+              color: '#9ca3af',
+              border: '1px dashed #2d3f4f',
             }}
           >
-            No documents yet. Upload a PDF to get started!
+            📭 No documents yet. Upload a PDF to get started!
           </div>
         )}
 
         {!loading && documents.length > 0 && (
           <div>
-            <p style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
-              Found {documents.length} document{documents.length !== 1 ? 's' : ''}
+            <p style={{ fontSize: '14px', color: '#d1d5db', marginBottom: '10px', marginTop: '0' }}>
+              ✅ Found {documents.length} document{documents.length !== 1 ? 's' : ''}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {documents.map((doc) => (
@@ -234,9 +254,18 @@ export function DocumentManager() {
                   key={doc.id}
                   style={{
                     padding: '12px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    backgroundColor: '#fff',
+                    border: '1px solid #2d3f4f',
+                    borderRadius: '6px',
+                    backgroundColor: '#1a2332',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = '#253447';
+                    e.currentTarget.style.borderColor = '#3b82f6';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = '#1a2332';
+                    e.currentTarget.style.borderColor = '#2d3f4f';
                   }}
                 >
                   {/* Document Header */}
@@ -250,11 +279,11 @@ export function DocumentManager() {
                     onClick={() => toggleExpanded(doc.id)}
                   >
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '500', marginBottom: '4px' }}>
+                      <div style={{ fontWeight: '600', marginBottom: '4px', color: '#e0e0e0' }}>
                         📄 {doc.fileName}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#666' }}>
-                        Uploaded: {formatDate(doc.uploadedAt)}
+                      <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                        📅 {formatDate(doc.uploadedAt)} • 📊 {doc.pageCount} pages
                       </div>
                     </div>
                     <button
