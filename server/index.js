@@ -34,6 +34,19 @@ import {
   exportSearchResults,
   getSimilarDocuments,
 } from "./advancedSearch.js";
+import {
+  exportDocumentsAsJSON,
+  exportDocumentsAsCSV,
+  exportDocumentsAsText,
+  exportConversationsAsJSON,
+  exportConversationsAsCSV,
+  exportConversationWithMessagesAsJSON,
+  exportConversationAsText,
+  exportSearchResultsAsJSON,
+  exportSearchResultsAsCSV,
+  exportFullDatabaseAsJSON,
+  generateExportFileName,
+} from "./export.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -342,6 +355,113 @@ app.get("/api/documents/:id/similar", requireApiKey, (req, res) => {
     const { similarityType } = req.query;
     const similar = getSimilarDocuments(req.params.id, similarityType || 'size');
     res.json({ similar });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// --- EXPORT ENDPOINTS ---
+
+// Export all documents as JSON
+app.get("/api/export/documents/json", requireApiKey, (req, res) => {
+  try {
+    const documents = listDocuments();
+    const json = exportDocumentsAsJSON(documents);
+    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('documents', 'json')}"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(json);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Export all documents as CSV
+app.get("/api/export/documents/csv", requireApiKey, (req, res) => {
+  try {
+    const documents = listDocuments();
+    const csv = exportDocumentsAsCSV(documents);
+    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('documents', 'csv')}"`);
+    res.setHeader('Content-Type', 'text/csv');
+    res.send(csv);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Export all documents as Text
+app.get("/api/export/documents/text", requireApiKey, (req, res) => {
+  try {
+    const documents = listDocuments();
+    const text = exportDocumentsAsText(documents);
+    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('documents', 'txt')}"`);
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(text);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Export all conversations as JSON
+app.get("/api/export/conversations/json", requireApiKey, (req, res) => {
+  try {
+    const conversations = getAllConversations();
+    const json = exportConversationsAsJSON(conversations);
+    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('conversations', 'json')}"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(json);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Export all conversations as CSV
+app.get("/api/export/conversations/csv", requireApiKey, (req, res) => {
+  try {
+    const conversations = getAllConversations();
+    const csv = exportConversationsAsCSV(conversations);
+    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('conversations', 'csv')}"`);
+    res.setHeader('Content-Type', 'text/csv');
+    res.send(csv);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Export specific conversation with messages as JSON
+app.get("/api/export/conversations/:sessionId/json", requireApiKey, (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const messages = getConversation(sessionId);
+    const json = exportConversationWithMessagesAsJSON(sessionId, messages);
+    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName(`conversation-${sessionId}`, 'json')}"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(json);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Export specific conversation as Text
+app.get("/api/export/conversations/:sessionId/text", requireApiKey, (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const messages = getConversation(sessionId);
+    const text = exportConversationAsText(sessionId, messages);
+    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName(`conversation-${sessionId}`, 'txt')}"`);
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(text);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Export full database as JSON
+app.get("/api/export/database/full", requireApiKey, (req, res) => {
+  try {
+    const json = exportFullDatabaseAsJSON();
+    res.setHeader('Content-Disposition', `attachment; filename="${generateExportFileName('database-full', 'json')}"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(json);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
