@@ -1,28 +1,57 @@
+import path from "node:path";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { PineconeStore } from "@langchain/pinecone";
-import { PineconeEmbeddings } from "@langchain/pinecone";
-import { Pinecone } from "@pinecone-database/pinecone";
+import { addDocuments } from "./vectorstore.js";
 
-export const ingestData = async (filePath) => {
+/**
+ * Loads a PDF, splits it into chunks, and stores in configured vector database
+ * (Pinecone or Chroma, based on VECTOR_DB env var)
+ * @param {string} filePath - Path to the temporary uploaded PDF file.
+ * @param {string} [originalName] - Original filename for metadata.
+ */
+export const ingestData = async (filePath, originalName) => {
+  console.log(`\n📄 Loading PDF from: ${filePath}`);
   const loader = new PDFLoader(filePath);
   const docs = await loader.load();
+  console.log(`✓ Extracted ${docs.length} pages`);
 
-  const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
+  console.log(`✂️  Splitting into chunks...`);
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 1000,
+    chunkOverlap: 200,
+  });
   const chunks = await splitter.splitDocuments(docs);
+  console.log(`✓ Created ${chunks.length} chunks`);
 
-  const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
-  const index = pc.Index(process.env.PINECONE_INDEX);
+  // Add metadata to chunks and ensure metadata values are serializable
+  const sourceName = originalName || path.basename(filePath);
+  const ingestedAt = new Date().toISOString();
+  chunks.forEach((chunk) => {
+    // Clean existing metadata to ensure Chroma compatibility
+    const cleanedMetadata = {};
+    for (const [key, value] of Object.entries(chunk.metadata || {})) {
+      // Only keep string/number/boolean values for Chroma compatibility
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        cleanedMetadata[key] = value;
+      }
+    }
 
-  const embeddings = new PineconeEmbeddings({ model: "llama-text-embed-v2" });
-  const store = await PineconeStore.fromExistingIndex(embeddings, {
-    pineconeIndex: index,
+    // Add our own metadata
+    chunk.metadata = {
+      ...cleanedMetadata,
+      source: sourceName,
+      ingestedAt,
+      fileName: sourceName,
+    };
   });
 
-  const BATCH_SIZE = 96;
-  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-    const batch = chunks.slice(i, i + BATCH_SIZE);
-    await store.addDocuments(batch);
+  // Store using configured vector database
+  console.log(`💾 Storing chunks...`);
+  try {
+    await addDocuments(chunks);
+    console.log(`✅ Ingestion Complete! (${chunks.length} chunks from ${sourceName})\n`);
+  } catch (error) {
+    console.error("❌ Ingestion error:", error);
+    throw new Error(`Failed to ingest documents: ${error.message}`);
   }
-  console.log("✅ Ingestion Complete!");
 };

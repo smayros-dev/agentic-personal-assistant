@@ -41,3 +41,9 @@ temp/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Playwright & Testing
+playwright-report/
+test-results/
+client/e2e/test-files/
+.playwright/
