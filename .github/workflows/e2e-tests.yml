@@ -14,21 +14,11 @@ jobs:
     services:
       ollama:
         image: ollama/ollama:latest
-        options: >-
-          --health-cmd "bash -c ':> /dev/tcp/127.0.0.1/11434'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
         ports:
           - 11434:11434
       
       chroma:
         image: chromadb/chroma:latest
-        options: >-
-          --health-cmd "curl -f http://localhost:8000/api/v2/heartbeat || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
         ports:
           - 8000:8000
 
@@ -71,6 +61,24 @@ jobs:
           echo
           curl -s http://localhost:11434/api/tags | grep -q "qwen2:0.5b"
           echo "Model ready"
+
+      - name: Wait for Chroma to be ready
+        run: |
+          echo "Waiting for Chroma API..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:8000/api/v2/heartbeat >/dev/null ||
+               curl -sf http://localhost:8000/api/v1/heartbeat >/dev/null ||
+               curl -sf http://localhost:8000/ >/dev/null; then
+              echo "Chroma is ready"
+              exit 0
+            fi
+            echo "Waiting for Chroma... ($i/30)"
+            sleep 2
+          done
+          echo "Chroma failed to start - container diagnostics:"
+          docker ps -a
+          docker logs $(docker ps -aq --filter "ancestor=chromadb/chroma:latest" | head -1) 2>&1 | tail -50
+          exit 1
 
       - name: Start backend server
         run: npm run start &
