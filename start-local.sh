@@ -1,74 +1,81 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# Cross-platform local starter (Windows/Git Bash, macOS, Linux)
+#
+#   Infra (native, no Docker):
+#     Ollama  -> http://localhost:11434
+#     Chroma  -> http://localhost:8000   (persisted in ./chroma_data)
+#   App (one dedicated terminal each):
+#     Backend  -> http://localhost:3001
+#     Frontend -> http://localhost:5173
+#
+# Usage:  ./start-local.sh
+#         Windows/PowerShell: .\start-local.ps1
 
-echo "🚀 Starting Agentic RAG Application (Local Mode)"
-echo "================================================"
-echo ""
-echo "This script assumes Docker services are already running:"
-echo "  docker-compose -f docker-compose.dev.yml up"
-echo ""
-echo "Starting backend and frontend locally with hot-reload..."
-echo ""
+set -u
 
-# Open two terminal windows or tabs
-echo "📋 Backend will start in one terminal"
-echo "   Frontend will start in another"
-echo ""
-
-# Get the directory
 PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-echo "Press Enter to start backend (Terminal 1)..."
-read
-
-# Terminal 1: Backend
-osascript <<APPLESCRIPT
-tell application "Terminal"
-  activate
-  do script "cd $PROJECT_DIR/server && npm run dev"
-end tell
-APPLESCRIPT
-
-sleep 2
-
-echo "Press Enter to start frontend (Terminal 2)..."
-read
-
-# Terminal 2: Frontend
-osascript <<APPLESCRIPT
-tell application "Terminal"
-  activate
-  do script "cd $PROJECT_DIR/client && npm run dev"
-end tell
-APPLESCRIPT
+. "$PROJECT_DIR/scripts/lib/common.sh"
 
 echo ""
-echo "✅ Services starting in separate terminals"
-echo ""
-echo "Backend: http://localhost:3001"
-echo "Frontend: http://localhost:5173"
-echo ""
-echo "Waiting for services to be ready..."
-sleep 5
-
-# Check health
-echo ""
-echo "🔍 Service Health Check:"
+hr
+echo "  Agentic RAG - local startup  ($(pa_os_label), native / no Docker)"
+hr
 echo ""
 
-# Check backend
-if curl -s http://localhost:3001/healthz > /dev/null 2>&1; then
-  echo "  ✓ Backend ready"
+# ---------------------------------------------------------------
+echo "[1/4] Infrastructure"
+# ---------------------------------------------------------------
+if pa_http_ok "$PA_OLLAMA_URL/api/tags"; then
+  ok "Ollama already running"
 else
-  echo "  ⏳ Backend still starting..."
+  info "Starting Ollama..."
+  pa_ollama_start
+  pa_wait_for "$PA_OLLAMA_URL/api/tags" "Ollama" 30
 fi
 
-# Check if port 5173 is listening
-if netstat -tuln | grep -q 5173; then
-  echo "  ✓ Frontend ready"
+if pa_chroma_ok; then
+  ok "Chroma already running"
 else
-  echo "  ⏳ Frontend still starting..."
+  pa_chroma_start "$PROJECT_DIR/chroma_data"
+  pa_wait_chroma 30
 fi
 
 echo ""
-echo "✅ Application is launching!"
-echo "📱 Open browser: http://localhost:5173"
+echo "[2/4] Backend  ->  $PA_BACKEND_URL"
+if pa_http_ok "$PA_BACKEND_URL/healthz"; then
+  ok "Backend already running"
+else
+  warn "Press Enter to start the backend terminal..."
+  read -r _
+  pa_open_terminal "Backend" "$PROJECT_DIR/server" "npm run dev"
+fi
+
+echo ""
+echo "[3/4] Frontend  ->  $PA_FRONTEND_URL"
+if pa_http_ok "$PA_FRONTEND_URL"; then
+  ok "Frontend already running"
+else
+  warn "Press Enter to start the frontend terminal..."
+  read -r _
+  sleep 2
+  pa_open_terminal "Frontend" "$PROJECT_DIR/client" "npm run dev"
+fi
+
+echo ""
+echo "[4/4] Health checks"
+pa_wait_for "$PA_OLLAMA_URL/api/tags" "Ollama  " 30
+pa_wait_chroma 30
+pa_wait_for "$PA_BACKEND_URL/healthz" "Backend " 45
+pa_wait_for "$PA_FRONTEND_URL" "Frontend" 45
+
+echo ""
+hr
+echo "  Application is up"
+echo "    Frontend : $PA_FRONTEND_URL"
+echo "    Backend  : $PA_BACKEND_URL  (/healthz)"
+echo "    Chroma   : $PA_CHROMA_URL  (./chroma_data)"
+echo "    Ollama   : $PA_OLLAMA_URL"
+echo ""
+echo "  Stop: ./stop-local.sh   (Windows: .\\stop-local.ps1)"
+hr

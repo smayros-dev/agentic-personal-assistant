@@ -32,11 +32,11 @@ This project is production-ready MVP with **19 core features implemented**. Here
 
 ### **DevOps & Testing**
 - **`CI_LOCAL_TESTING.md`** - Guide to test CI/CD pipeline locally
-- **`run-ci-local.sh`** - Automated script to simulate GitHub Actions
+- **`scripts/test/run-ci-local.sh`** - Automated script to simulate GitHub Actions
 - **`docker-compose.ci.yml`** - Docker services for local testing
 
 ### **Getting Started**
-- **`check-ci-setup.sh`** - Verify prerequisites are installed
+- **`scripts/test/check-ci-setup.sh`** - Verify prerequisites are installed
 
 ---
 
@@ -203,10 +203,10 @@ Before pushing to GitHub, test locally:
 
 ```bash
 # Check prerequisites
-./check-ci-setup.sh
+./scripts/test/check-ci-setup.sh
 
 # Run full CI pipeline simulation
-./run-ci-local.sh
+./scripts/test/run-ci-local.sh
 ```
 
 This will:
@@ -274,7 +274,7 @@ After implementing improvements:
 ## 💡 Pro Tips
 
 1. **Start with persistence** - Everything else is easier with a database
-2. **Test locally first** - Use `./run-ci-local.sh` before GitHub push
+2. **Test locally first** - Use `./scripts/test/run-ci-local.sh` before GitHub push
 3. **Document as you go** - Update README and docs for each feature
 4. **Keep tests up to date** - Maintain 45+ test coverage
 5. **Plan for scale** - Design for 1000+ documents from day 1

@@ -6,7 +6,7 @@ Pour développer avec **hot-reload** et itérations rapides, utilisez `docker-co
 
 ```bash
 # Démarrer tout automatiquement
-./dev-setup.sh
+./scripts/docker/dev-setup.sh
 
 # Puis dans d'autres terminaux:
 cd server && npm run dev

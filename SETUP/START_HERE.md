@@ -200,10 +200,10 @@ Easily switch between Chroma and Pinecone:
 
 ```bash
 # Use local Chroma (recommended)
-./switch-vectorstore.sh chroma
+./scripts/config/switch-vectorstore.sh chroma
 
 # Use cloud Pinecone
-./switch-vectorstore.sh pinecone
+./scripts/config/switch-vectorstore.sh pinecone
 ```
 
 Then update your API keys in `server/.env`.

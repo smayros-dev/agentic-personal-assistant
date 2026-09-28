@@ -1,10 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import App from "../App";
 
 // Mock fetch API
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn();
 
 describe("App - Session Management", () => {
   beforeEach(() => {
@@ -53,10 +51,10 @@ describe("App - Session Management", () => {
 
   it("should create new session ID on clear", () => {
     const createSessionId = () => crypto.randomUUID();
-    
+
     const sessionId1 = createSessionId();
     const sessionId2 = createSessionId();
-    
+
     expect(sessionId1).not.toBe(sessionId2);
   });
 });
@@ -157,9 +155,11 @@ describe("App - Error Handling", () => {
     const fetchModels = async () => {
       try {
         // Simulate a fetch failure scenario
-        const mockError = () => { throw new Error("Network failed"); };
+        const mockError = () => {
+          throw new Error("Network failed");
+        };
         mockError();
-      } catch (err) {
+      } catch {
         return { error: true, message: "Failed to fetch" };
       }
     };
@@ -180,7 +180,7 @@ describe("App - Error Handling", () => {
           },
         };
         return await mockResponse.json();
-      } catch (err) {
+      } catch {
         return null;
       }
     };
@@ -251,7 +251,7 @@ describe("App - Chat Functionality", () => {
   });
 
   it("should handle chat errors gracefully", async () => {
-    const sendChatMessage = async (message, sessionId) => {
+    const sendChatMessage = async (message) => {
       // Simulate error response
       if (!message) throw new Error("Message required");
       return { success: true };

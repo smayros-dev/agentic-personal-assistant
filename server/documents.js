@@ -4,7 +4,6 @@
  */
 
 import db from "./db.js";
-import { v4 as uuid } from "uuid";
 
 /**
  * Add document metadata after ingestion

@@ -97,7 +97,7 @@ This script:
 
 **Terminal 1: Chroma**
 ```bash
-./scripts/start-chroma.sh
+./scripts/scripts/start/start-chroma.sh
 # OR
 docker run -p 8000:8000 chromadb/chroma
 # OR
@@ -211,7 +211,7 @@ lsof -i :8000
 kill -9 <PID>
 
 # Restart Chroma
-./scripts/start-chroma.sh
+./scripts/scripts/start/start-chroma.sh
 ```
 
 ### **Issue: "ChromaConnectionError"**
@@ -225,7 +225,7 @@ curl http://localhost:8000/api/v1
 # 2. Check logs
 # 3. Restart
 
-./scripts/start-chroma.sh
+./scripts/scripts/start/start-chroma.sh
 ```
 
 ### **Issue: PDF upload succeeds but chat fails**
@@ -249,7 +249,7 @@ cd server && npm start
 
 ```bash
 # Option 1: Chroma crashed - restart it
-./scripts/start-chroma.sh
+./scripts/scripts/start/start-chroma.sh
 
 # Option 2: Chroma overloaded - increase resources
 # If using Docker:
@@ -402,7 +402,7 @@ Before going to production:
 | `server/vectorstore.js` | Chroma integration code |
 | `server/ingest.js` | PDF → Chroma pipeline |
 | `server/index.js` | API endpoints |
-| `scripts/start-chroma.sh` | Auto-start Chroma |
+| `scripts/scripts/start/start-chroma.sh` | Auto-start Chroma |
 | `scripts/dev.sh` | Start everything |
 
 ---

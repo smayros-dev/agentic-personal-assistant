@@ -48,7 +48,7 @@ cd agentic-personal-assistant
 ### Step 2: Vérifier l'Installation
 
 ```bash
-./check-ci-setup.sh
+./scripts/test/check-ci-setup.sh
 # Output:
 # ✓ Docker is installed
 # ✓ Node.js is installed
@@ -210,7 +210,7 @@ npm run test:e2e:ui
 ### Local CI (Simule GitHub Actions)
 
 ```bash
-./run-ci-local.sh
+./scripts/test/run-ci-local.sh
 # Runs complete CI pipeline locally
 ```
 

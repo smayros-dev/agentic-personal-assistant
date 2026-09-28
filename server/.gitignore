@@ -22,6 +22,9 @@ pids
 *.seed
 *.pid.lock
 
+# SQLite database + WAL files (created at runtime)
+data/
+
 # Coverage directory used by tools like istanbul
 coverage
 *.lcov

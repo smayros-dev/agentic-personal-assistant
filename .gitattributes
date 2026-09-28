@@ -1,0 +1,5 @@
+# Normalize line endings in the repo, convert per-platform on checkout
+* text=auto
+
+# Shell scripts must stay LF so they run on macOS, Linux and Git Bash
+*.sh text eol=lf

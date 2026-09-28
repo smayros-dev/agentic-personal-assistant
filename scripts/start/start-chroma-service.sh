@@ -6,22 +6,19 @@
 #
 #  Robustly starts Chroma with proper error handling and verification
 #
-#  Usage: ./start-chroma-service.sh
+#  Usage: ./scripts/start/start-chroma-service.sh
 #
 ##############################################################################
 
 set -e
 
-# Color codes
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+. "$PROJECT_ROOT/scripts/lib/common.sh"
 
 CHROMA_PORT=8000
 CHROMA_URL="http://localhost:$CHROMA_PORT"
+CHROMA_DATA="$PROJECT_ROOT/chroma_data"
 
 print_header() {
     echo ""
@@ -58,16 +55,9 @@ print_step() {
 check_already_running() {
     print_step "Checking if Chroma is already running on port $CHROMA_PORT..."
     
-    if curl -s "$CHROMA_URL/api/v1" > /dev/null 2>&1; then
+    if pa_chroma_ok; then
         print_success "Chroma is already running!"
         print_info "URL: $CHROMA_URL"
-        
-        # Get Chroma info
-        COLLECTIONS=$(curl -s "$CHROMA_URL/api/v1/collections" | grep -o '"name"' | wc -l)
-        if [ $COLLECTIONS -gt 0 ]; then
-            print_info "Collections in Chroma: $COLLECTIONS"
-        fi
-        
         return 0  # Already running
     fi
     
@@ -80,22 +70,15 @@ check_already_running() {
 
 check_port_available() {
     print_step "Checking if port $CHROMA_PORT is available..."
-    
-    if lsof -Pi :$CHROMA_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
-        PID=$(lsof -Pi :$CHROMA_PORT -sTCP:LISTEN -t)
+
+    if pa_port_busy "$CHROMA_PORT"; then
+        PID="$(pa_pid_on_port "$CHROMA_PORT")"
         print_warning "Port $CHROMA_PORT is in use by process $PID"
         print_info "Killing process..."
-        
-        kill -9 $PID 2>/dev/null || true
-        sleep 2
-        
-        if lsof -Pi :$CHROMA_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
-            print_error "Could not free port $CHROMA_PORT"
-            return 1
-        fi
+        pa_kill_port "$CHROMA_PORT" || return 1
         print_success "Port freed"
     fi
-    
+
     return 0
 }
 
@@ -105,32 +88,35 @@ check_port_available() {
 
 detect_chroma_method() {
     print_step "Detecting Chroma installation method..."
-    
-    # Method 1: Python
-    if command -v python3 &> /dev/null; then
-        if python3 -c "import chromadb" 2>/dev/null; then
-            print_success "Found Python with chromadb installed"
-            echo "python"
-            return 0
-        fi
+
+    # Method 1: Python (chromadb CLI)
+    if pa_chroma_bin >/dev/null 2>&1; then
+        print_success "Found chromadb CLI ($(pa_chroma_bin))"
+        echo "python"
+        return 0
     fi
-    
+    if pa_python_has chromadb; then
+        print_success "Found Python with chromadb installed"
+        echo "python"
+        return 0
+    fi
+
     # Method 2: Docker
-    if command -v docker &> /dev/null; then
+    if command -v docker &> /dev/null && pa_docker_running; then
         if docker ps --filter "image=chromadb/chroma" 2>/dev/null | grep -q chromadb; then
             print_success "Found Docker with Chroma image already running"
             echo "docker"
             return 0
         fi
-        
-        # Check if image exists
         if docker image inspect chromadb/chroma >/dev/null 2>&1; then
             print_success "Found Docker with Chroma image available"
             echo "docker"
             return 0
         fi
+        echo "docker"
+        return 0
     fi
-    
+
     return 1
 }
 
@@ -144,12 +130,17 @@ install_chroma() {
     echo "Install one of:"
     echo ""
     echo "  Option 1 - Python (Recommended):"
-    echo "    brew install python3"
-    echo "    pip3 install chromadb"
+    case "$PA_OS" in
+      macos)   echo "    brew install python3 && pip3 install chromadb" ;;
+      windows) echo "    pip install chromadb        (Python from https://python.org)" ;;
+      *)       echo "    sudo apt install python3-pip && pip3 install chromadb" ;;
+    esac
     echo ""
     echo "  Option 2 - Docker:"
-    echo "    brew install docker"
+    echo "    $(pa_docker_hint)"
     echo "    docker pull chromadb/chroma"
+    echo ""
+    echo "  Then re-run: ./scripts/start/start-chroma-service.sh"
     echo ""
     
     exit 1
@@ -162,14 +153,18 @@ install_chroma() {
 start_chroma_python() {
     print_step "Starting Chroma via Python..."
     
+    local CHROMA_BIN
+    CHROMA_BIN="$(pa_chroma_bin)" || { print_error "chroma CLI not found"; return 1; }
+    
     # Create log directory
-    mkdir -p /tmp/agentic-assistant-logs
-    LOG_FILE="/tmp/agentic-assistant-logs/chroma.log"
+    LOG_DIR="$(pa_log_dir)"
+    LOG_FILE="$LOG_DIR/chroma.log"
     
     print_info "Log file: $LOG_FILE"
+    print_info "Persistence: $CHROMA_DATA"
     
     # Start Chroma
-    chroma run --host localhost --port $CHROMA_PORT > "$LOG_FILE" 2>&1 &
+    "$CHROMA_BIN" run --host localhost --port "$CHROMA_PORT" --path "$CHROMA_DATA" > "$LOG_FILE" 2>&1 &
     CHROMA_PID=$!
     
     print_info "Chroma PID: $CHROMA_PID"
@@ -180,7 +175,7 @@ start_chroma_python() {
     local attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-        if curl -s "$CHROMA_URL/api/v1" > /dev/null 2>&1; then
+        if pa_chroma_ok; then
             print_success "Chroma started successfully!"
             print_info "URL: $CHROMA_URL"
             return 0
@@ -206,9 +201,15 @@ start_chroma_python() {
 start_chroma_docker() {
     print_step "Starting Chroma via Docker..."
     
+    if ! pa_docker_running; then
+        print_error "Docker daemon is not running"
+        print_info "$(pa_docker_hint)"
+        return 1
+    fi
+    
     # Create log directory
-    mkdir -p /tmp/agentic-assistant-logs
-    LOG_FILE="/tmp/agentic-assistant-logs/chroma-docker.log"
+    LOG_DIR="$(pa_log_dir)"
+    LOG_FILE="$LOG_DIR/chroma-docker.log"
     
     print_info "Log file: $LOG_FILE"
     
@@ -220,6 +221,10 @@ start_chroma_docker() {
     docker run \
         --rm \
         -p $CHROMA_PORT:$CHROMA_PORT \
+        -v "$CHROMA_DATA:/chroma/data" \
+        -e IS_PERSISTENT=TRUE \
+        -e PERSIST_DIRECTORY=/chroma/data \
+        -e ANONYMIZED_TELEMETRY=false \
         --name agentic-chroma \
         chromadb/chroma \
         > "$LOG_FILE" 2>&1 &
@@ -233,7 +238,7 @@ start_chroma_docker() {
     local attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-        if curl -s "$CHROMA_URL/api/v1" > /dev/null 2>&1; then
+        if pa_chroma_ok; then
             print_success "Chroma started successfully!"
             print_info "URL: $CHROMA_URL"
             return 0
@@ -260,20 +265,15 @@ verify_chroma() {
     print_step "Verifying Chroma installation..."
     
     # Test 1: Health check
-    if ! curl -s "$CHROMA_URL/api/v1" > /dev/null 2>&1; then
+    if ! pa_chroma_ok; then
         print_error "Chroma health check failed"
         return 1
     fi
     print_success "Health check passed"
     
-    # Test 2: Collections
-    if curl -s "$CHROMA_URL/api/v1/collections" > /dev/null 2>&1; then
-        print_success "Collections endpoint working"
-    fi
-    
-    # Test 3: Version (optional)
-    VERSION=$(curl -s "$CHROMA_URL/api/v1" 2>/dev/null || echo "unknown")
-    print_info "Chroma version info: $VERSION"
+    # Test 2: heartbeat info
+    VERSION=$(curl -s "$CHROMA_URL/api/v2/heartbeat" 2>/dev/null || echo "unknown")
+    print_info "Chroma heartbeat: $VERSION"
     
     return 0
 }
@@ -283,7 +283,7 @@ verify_chroma() {
 ##############################################################################
 
 main() {
-    clear
+    clear 2>/dev/null || true
     
     print_header "🐳 CHROMA VECTOR DATABASE STARTUP"
     
@@ -293,9 +293,9 @@ main() {
         print_success "Chroma is ready to use!"
         echo ""
         echo "You can now:"
-        echo "  • Start Backend: cd server && npm start"
-        echo "  • Start Frontend: cd client && npm start"
-        echo "  • Or use: ./start.sh (to start everything)"
+        echo "  • Start Backend: cd server && npm run dev"
+        echo "  • Start Frontend: cd client && npm run dev"
+        echo "  • Or use: ./start-local.sh (to start everything)"
         echo ""
         exit 0
     fi
@@ -344,11 +344,11 @@ main() {
     echo ""
     echo "  1. Keep this terminal open (Chroma is running here)"
     echo "  2. Open another terminal and run:"
-    echo "     cd server && npm start"
+    echo "     cd server && npm run dev"
     echo "  3. Open another terminal and run:"
-    echo "     cd client && npm start"
+    echo "     cd client && npm run dev"
     echo ""
-    echo "  OR simply run: ./start.sh (to start everything at once)"
+    echo "  OR simply run: ./start-local.sh (to start everything at once)"
     echo ""
     
     # Keep Chroma running in foreground

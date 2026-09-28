@@ -16,7 +16,7 @@
 The project includes a complete **local CI/CD pipeline** that simulates GitHub Actions:
 
 ```bash
-./run-ci-local.sh
+./scripts/test/run-ci-local.sh
 ```
 
 This script runs:
@@ -48,7 +48,7 @@ Playwright (installed via npm)
 cd /Users/mac-Z16MSMAI/Documents/front/agentic-personal-assistant
 
 # Run complete pipeline
-./run-ci-local.sh
+./scripts/test/run-ci-local.sh
 
 # Or run specific tests
 npm test              # All unit tests
@@ -407,7 +407,7 @@ git commit -m "feat: description"
 
 ```bash
 # 1. Local testing (before push)
-./run-ci-local.sh
+./scripts/test/run-ci-local.sh
 
 # 2. GitHub Actions (automatic)
 # Triggered by push/PR
@@ -513,7 +513,7 @@ npm run format           # Format with Prettier
 npm run format:check     # Check formatting
 
 # CI/CD
-./run-ci-local.sh        # Full pipeline
+./scripts/test/run-ci-local.sh        # Full pipeline
 ```
 
 ---

@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from "react";
 
-const SESSION_STORAGE_KEY = 'agentic-assistant-session-id';
-const MODEL_STORAGE_KEY = 'agentic-assistant-model';
+const SESSION_STORAGE_KEY = "agentic-assistant-session-id";
+const MODEL_STORAGE_KEY = "agentic-assistant-model";
 
 /**
  * Creates a new session ID using crypto.randomUUID or fallback
  */
 export const createSessionId = () =>
-  typeof crypto !== 'undefined' && crypto.randomUUID
+  typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
@@ -27,7 +27,7 @@ export const getOrCreateSessionId = () => {
  */
 export const getOrCreateModel = () => {
   const stored = localStorage.getItem(MODEL_STORAGE_KEY);
-  return stored || 'qwen3.6:latest';
+  return stored || "qwen3.6:latest";
 };
 
 /**

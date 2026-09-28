@@ -147,7 +147,7 @@
   ✅ E2E Test Path Issue (RESOLVED)
      Problem: Subshell cd propagating errors
      Solution: Use subshell wrapper
-     Status: Fixed in run-ci-local.sh
+     Status: Fixed in scripts/test/run-ci-local.sh
 
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ ⚠️ KNOWN LIMITATIONS                                                          │

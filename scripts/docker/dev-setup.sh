@@ -1,9 +1,13 @@
 #!/bin/bash
 
 # Quick dev startup script
-# Usage: ./dev-setup.sh
+# Usage: ./scripts/docker/dev-setup.sh
 
 set -e
+
+# Run every command from the repository root regardless of invocation path
+PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../.." && pwd )"
+cd "$PROJECT_ROOT" || exit 1
 
 echo "🚀 Starting Agentic RAG in Development Mode"
 echo ""

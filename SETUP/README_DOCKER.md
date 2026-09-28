@@ -128,8 +128,8 @@ PINECONE_INDEX=agentic-rag-index
 ### Switcher Script
 ```bash
 # Quick switch between Chroma and Pinecone
-./switch-vectorstore.sh chroma     # → Chroma (local)
-./switch-vectorstore.sh pinecone   # → Pinecone (cloud)
+./scripts/config/switch-vectorstore.sh chroma     # → Chroma (local)
+./scripts/config/switch-vectorstore.sh pinecone   # → Pinecone (cloud)
 ```
 
 **See:** [`VECTOR_STORE_SETUP.md`](./VECTOR_STORE_SETUP.md) for detailed guide

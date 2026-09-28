@@ -3,9 +3,8 @@
  * Supports JSON, CSV, and text formats
  */
 
-import { listDocuments, getDocumentStats } from "./documents.js";
-import { getAllConversations, getConversation } from "./chatHistory.js";
-import { advancedSearch } from "./advancedSearch.js";
+import { listDocuments } from "./documents.js";
+import { getAllConversations } from "./chatHistory.js";
 
 /**
  * Export documents as JSON

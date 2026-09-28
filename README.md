@@ -134,13 +134,13 @@ pip3 install chromadb
 
 ```bash
 # Terminal 1
-./start-chroma-service.sh
+./scripts/start/start-chroma-service.sh
 
 # Terminal 2
-./start-backend-service.sh
+./scripts/start/start-backend-service.sh
 
 # Terminal 3
-./start-frontend-service.sh
+./scripts/start/start-frontend-service.sh
 ```
 
 ---
@@ -172,7 +172,7 @@ curl http://localhost:3001/health      # Backend ✓
 curl http://localhost:5173             # Frontend ✓
 
 # Verify RAG pipeline
-python3 verify-rag.py
+python3 scripts/test/verify-rag.py
 
 # View logs
 tail -f /tmp/agentic-assistant-logs/chroma.log
@@ -203,9 +203,9 @@ tail -f /tmp/agentic-assistant-logs/frontend.log
 
 | Service | Port | Command |
 |---------|------|---------|
-| **Frontend** | 5173 | `./start-frontend-service.sh` |
-| **Backend** | 3001 | `./start-backend-service.sh` |
-| **Chroma** | 8000 | `./start-chroma-service.sh` |
+| **Frontend** | 5173 | `./scripts/start/start-frontend-service.sh` |
+| **Backend** | 3001 | `./scripts/start/start-backend-service.sh` |
+| **Chroma** | 8000 | `./scripts/start/start-chroma-service.sh` |
 
 ---
 
@@ -214,10 +214,10 @@ tail -f /tmp/agentic-assistant-logs/frontend.log
 ```
 agentic-personal-assistant/
 ├── start.sh                      ← ⭐ Start everything
-├── start-chroma-service.sh      ← Chroma only
-├── start-backend-service.sh     ← Backend only
-├── start-frontend-service.sh    ← Frontend only
-├── verify-rag.py                ← Test RAG pipeline
+├── scripts/start/start-chroma-service.sh      ← Chroma only
+├── scripts/start/start-backend-service.sh     ← Backend only
+├── scripts/start/start-frontend-service.sh    ← Frontend only
+├── scripts/test/verify-rag.py                ← Test RAG pipeline
 │
 ├── client/                       ← React Frontend
 │   ├── src/
@@ -343,7 +343,7 @@ tail -f /tmp/agentic-assistant-logs/backend.log
 curl http://localhost:8000/api/v1
 
 # Run RAG verification
-python3 verify-rag.py
+python3 scripts/test/verify-rag.py
 ```
 
 ### **Chat not using PDF**
@@ -374,7 +374,7 @@ cd server && npm test
 cd client && npm test
 
 # E2E / RAG tests
-python3 verify-rag.py
+python3 scripts/test/verify-rag.py
 ```
 
 ### Current status
@@ -422,7 +422,7 @@ python3 verify-rag.py
 
 5. **Verify it works:**
    ```bash
-   python3 verify-rag.py
+   python3 scripts/test/verify-rag.py
    ```
 
 ---

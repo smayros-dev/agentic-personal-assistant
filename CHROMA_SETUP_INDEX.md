@@ -26,7 +26,7 @@ Read [CHROMA_SETUP_GUIDE.md](./CHROMA_SETUP_GUIDE.md) (10 min)
 | Script | Purpose | Use When |
 |--------|---------|----------|
 | `dev.sh` | **Start everything** | You want all services at once |
-| `start-chroma.sh` | Start Chroma only | You want to manage services separately |
+| `scripts/start/start-chroma.sh` | Start Chroma only | You want to manage services separately |
 | `start-all.sh` | Separate terminals | You're on macOS and want separate windows |
 | `README.md` | Script documentation | You need detailed script options |
 
@@ -181,7 +181,7 @@ A: Press Ctrl+C in the terminal
 A: `/tmp/backend.log`, `/tmp/chroma.log`, `/tmp/frontend.log`
 
 **Q: Can I run services separately?**  
-A: Yes, use `./scripts/start-chroma.sh` + manual starts
+A: Yes, use `./scripts/scripts/start/start-chroma.sh` + manual starts
 
 **Q: Is this production-ready?**  
 A: PDF upload & RAG pipeline: Yes. For production deployment: See `CHROMA_SETUP_GUIDE.md`

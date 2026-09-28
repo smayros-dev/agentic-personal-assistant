@@ -370,7 +370,7 @@ python3 /tmp/check-chroma.py
 
 ```bash
 # Redémarrer Chroma
-./scripts/start-chroma.sh
+./scripts/scripts/start/start-chroma.sh
 
 # Ou redémarrer tout
 pkill -f "npm start"
