@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 
-const BASE_URL = 'http://localhost:5175';
+const BASE_URL = 'http://localhost:5173';
 const API_URL = 'http://localhost:3001';
 
 // Helper to create a test PDF
