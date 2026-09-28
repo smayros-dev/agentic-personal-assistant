@@ -39,7 +39,7 @@ Core Architecture:
   ✓ docker-compose.dev.yml - Dev infrastructure
   ✓ server/Dockerfile - Node.js containerization
   ✓ ollama-startup.sh - Model auto-pull script
-  ✓ switch-vectorstore.sh - Vector DB configuration switcher
+  ✓ scripts/config/switch-vectorstore.sh - Vector DB configuration switcher
 
 Testing:
   ✓ client/playwright.config.ts - Playwright configuration
@@ -50,7 +50,7 @@ Testing:
   ✓ .github/workflows/e2e-tests.yml - GitHub Actions
 
 Development:
-  ✓ dev-setup.sh - One-command dev environment
+  ✓ scripts/docker/dev-setup.sh - One-command dev environment
   ✓ server/nodemon.json - Auto-reload configuration
   ✓ start-local.sh - Helper script for local startup
 
@@ -168,7 +168,7 @@ Vector Database Options:
     → Serverless
     → Production-ready
 
-Switch easily: ./switch-vectorstore.sh chroma|pinecone
+Switch easily: ./scripts/config/switch-vectorstore.sh chroma|pinecone
 
 ═══════════════════════════════════════════════════════════════
   NEXT PHASE (NOT YET IMPLEMENTED)

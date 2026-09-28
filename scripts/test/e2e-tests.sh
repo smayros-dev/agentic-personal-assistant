@@ -10,8 +10,24 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+. "$PROJECT_ROOT/scripts/lib/common.sh"
+
 API_URL="http://localhost:3001"
-FRONTEND_URL="http://localhost:5175"
+FRONTEND_URL="http://localhost:5173"
+
+# Chat model: E2E_CHAT_MODEL > server/.env OLLAMA_MODEL > first installed model
+CHAT_MODEL="${E2E_CHAT_MODEL:-}"
+if [ -z "$CHAT_MODEL" ] && [ -f "$PROJECT_ROOT/server/.env" ]; then
+    CHAT_MODEL="$(sed -n 's/^OLLAMA_MODEL=//p' "$PROJECT_ROOT/server/.env" | head -1 | tr -d '"\r ')"
+fi
+if [ -z "$CHAT_MODEL" ]; then
+    CHAT_MODEL="$(curl -s "$API_URL/api/models" | sed -n 's/.*"models":\["\([^"]*\)".*/\1/p')"
+fi
+CHAT_MODEL="${CHAT_MODEL:-gemma4:26b}"
+echo "Chat model: $CHAT_MODEL"
+echo ""
 
 TESTS_PASSED=0
 TESTS_FAILED=0
@@ -89,8 +105,10 @@ test_api "Get stats" "GET" "/api/documents/stats/overview" "" "totalDocuments"
 
 # Upload test PDF
 echo -n "  ✓ Upload document: "
+TEST_PDF="$(pa_tmp)/test.pdf"
+node "$PROJECT_ROOT/scripts/test/make-test-pdf.mjs" "$TEST_PDF" >/dev/null
 UPLOAD_RESULT=$(curl -s -X POST "$API_URL/api/ingest" \
-    -F "file=@/tmp/test.pdf")
+    -F "file=@$TEST_PDF")
 
 if echo "$UPLOAD_RESULT" | grep -q "ok"; then
     DOC_ID=$(echo "$UPLOAD_RESULT" | grep -o '"documentId":"[^"]*"' | cut -d'"' -f4)
@@ -136,20 +154,27 @@ echo ""
 # --- Chat & RAG Tests ---
 echo -e "${BLUE}[4] CHAT & RAG WORKFLOW${NC}"
 
-SESSION_ID=$(python3 -c "import uuid; print(str(uuid.uuid4()))")
+if PY="$(pa_python)"; then
+    SESSION_ID=$($PY -c "import uuid; print(str(uuid.uuid4()))")
+elif command -v uuidgen >/dev/null 2>&1; then
+    SESSION_ID=$(uuidgen)
+else
+    SESSION_ID="session-$(date +%s)-$$"
+fi
 
 # Simple chat
 echo -n "  ✓ Send message: "
 CHAT=$(curl -s -X POST "$API_URL/api/chat" \
     -H "Content-Type: application/json" \
-    -d "{\"message\":\"Hello\",\"model\":\"qwen3.6:latest\",\"sessionId\":\"$SESSION_ID\"}" \
-    --max-time 60)
+    -d "{\"message\":\"Hello\",\"model\":\"$CHAT_MODEL\",\"sessionId\":\"$SESSION_ID\"}" \
+    --max-time 180)
 
 if echo "$CHAT" | grep -q "answer"; then
     echo -e "${GREEN}✅${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌${NC}"
+    echo "    got: $(echo "$CHAT" | head -c 200)"
     TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
@@ -157,14 +182,15 @@ fi
 echo -n "  ✓ Chat with document context: "
 CONTEXT_CHAT=$(curl -s -X POST "$API_URL/api/chat" \
     -H "Content-Type: application/json" \
-    -d "{\"message\":\"What is in the document?\",\"model\":\"qwen3.6:latest\",\"sessionId\":\"$SESSION_ID\"}" \
-    --max-time 60)
+    -d "{\"message\":\"What is in the document?\",\"model\":\"$CHAT_MODEL\",\"sessionId\":\"$SESSION_ID\"}" \
+    --max-time 180)
 
 if echo "$CONTEXT_CHAT" | grep -q "answer"; then
     echo -e "${GREEN}✅${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌${NC}"
+    echo "    got: $(echo "$CONTEXT_CHAT" | head -c 200)"
     TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
@@ -176,9 +202,9 @@ echo -e "${BLUE}[5] ERROR HANDLING${NC}"
 echo -n "  ✓ Reject empty message: "
 EMPTY=$(curl -s -X POST "$API_URL/api/chat" \
     -H "Content-Type: application/json" \
-    -d '{"message":"","model":"qwen3.6:latest"}')
+    -d "{\"message\":\"\",\"model\":\"$CHAT_MODEL\"}")
 
-if echo "$EMPTY" | grep -q "error\|required"; then
+if echo "$EMPTY" | grep -qi "error\|required\|cannot be empty"; then
     echo -e "${GREEN}✅${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 else

@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, waitFor } from "@testing-library/react";
 import { DocumentManager } from "../components/DocumentManager";
 
 // Mock fetch API
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn();
 
 describe("DocumentManager - Logic & Utilities", () => {
   beforeEach(() => {
@@ -151,9 +150,7 @@ describe("DocumentManager - Component Rendering", () => {
     fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        documents: [
-          { id: "1", fileName: "test.pdf", size: 1024, uploadedAt: "2024-01-15" },
-        ],
+        documents: [{ id: "1", fileName: "test.pdf", size: 1024, uploadedAt: "2024-01-15" }],
         stats: { totalDocuments: 1, totalSize: 1024, totalChunks: 5 },
       }),
     });

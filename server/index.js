@@ -9,16 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { unlink } from "node:fs/promises";
 import { runAgent, listOllamaModels, LLMUnavailableError } from "./agent.js";
-import {
-  chatMessageSchema,
-  fileUploadSchema,
-  searchQuerySchema,
-  dateRangeSchema,
-  fileSizeRangeSchema,
-  exportDocumentsSchema,
-  formatValidationError,
-  createValidationMiddleware,
-} from "./validators.js";
+import { chatMessageSchema, formatValidationError } from "./validators.js";
 import { ingestData } from "./ingest.js";
 import { getVectorStoreConfig } from "./vectorstore.js";
 import {
@@ -53,8 +44,6 @@ import {
   exportConversationsAsCSV,
   exportConversationWithMessagesAsJSON,
   exportConversationAsText,
-  exportSearchResultsAsJSON,
-  exportSearchResultsAsCSV,
   exportFullDatabaseAsJSON,
   generateExportFileName,
 } from "./export.js";
@@ -67,16 +56,18 @@ app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
 // --- Security Headers (Helmet) ---
 app.use(helmet());
-app.use(helmet.contentSecurityPolicy({
-  directives: {
-    defaultSrc: ["'self'"],
-    scriptSrc: ["'self'", "'unsafe-inline'"],
-    styleSrc: ["'self'", "'unsafe-inline'"],
-    imgSrc: ["'self'", "data:", "https:"],
-  },
-}));
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  })
+);
 app.use(helmet.hsts({ maxAge: 31536000, includeSubDomains: true, preload: true }));
-app.use(helmet.frameguard({ action: 'deny' }));
+app.use(helmet.frameguard({ action: "deny" }));
 app.use(helmet.noSniff());
 app.use(helmet.xssFilter());
 
@@ -147,8 +138,6 @@ const upload = multer({
   },
   limits: { fileSize: 25 * 1024 * 1024 },
 });
-
-const MAX_MESSAGE_LENGTH = 4000;
 
 // Health check
 app.get("/healthz", (_req, res) => {
@@ -553,7 +542,7 @@ app.use((err, req, res, next) => {
   console.error(err);
 
   // Handle Zod validation errors
-  if (err.name === 'ZodError') {
+  if (err.name === "ZodError") {
     return res.status(400).json(formatValidationError(err));
   }
 

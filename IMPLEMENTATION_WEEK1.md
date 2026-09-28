@@ -409,7 +409,7 @@ npm install --save-dev @testing-library/react @testing-library/jest-dom
 ```bash
 npm test
 npm run test:coverage
-bash run-ci-local.sh
+bash scripts/test/run-ci-local.sh
 ```
 
 ### Step 5: Commit

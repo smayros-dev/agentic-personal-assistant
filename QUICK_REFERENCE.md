@@ -53,7 +53,7 @@ docker-compose -f docker-compose.dev.yml up
 npm run lint
 
 # CI/CD Local
-bash run-ci-local.sh
+bash scripts/test/run-ci-local.sh
 ```
 
 ---
@@ -133,7 +133,7 @@ ROOT:
 1. SETUP/START_HERE.md             (10 min)
 2. SETUP/DEPLOYMENT.md             (20 min)
 3. DOCS/07-CI_CD_TESTING.md        (15 min)
-4. Run: bash run-ci-local.sh
+4. Run: bash scripts/test/run-ci-local.sh
 ```
 
 ### Tech Lead

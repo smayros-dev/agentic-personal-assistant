@@ -130,7 +130,7 @@ agentic-personal-assistant/
 ├── server/              # Node.js backend (port 3001)
 ├── scripts/             # Helper scripts
 │   ├── dev.sh          # ⭐ Start everything
-│   ├── start-chroma.sh # Start Chroma only
+│   ├── scripts/start/start-chroma.sh # Start Chroma only
 │   └── README.md       # Full script docs
 ├── QUICK_START.md      # This file
 └── README.md           # Full documentation

@@ -23,13 +23,13 @@ npm run install:models:custom mistral:7b llama2:7b
 
 ```bash
 # Install default models
-./install-models.sh
+./scripts/models/install-models.sh
 
 # Install specific models
-./install-models.sh mistral:7b llama2:7b
+./scripts/models/install-models.sh mistral:7b llama2:7b
 
 # Install multiple models at once
-./install-models.sh mistral:7b llama2:7b neural-chat:7b dolphin-mixtral:latest
+./scripts/models/install-models.sh mistral:7b llama2:7b neural-chat:7b dolphin-mixtral:latest
 ```
 
 ### Option 3: Using Docker Exec (Advanced)

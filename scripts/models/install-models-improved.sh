@@ -90,12 +90,12 @@ if [ $# -gt 0 ]; then
     done
 else
     echo -e "${YELLOW}No models specified.${NC}"
-    echo "Usage: ./install-models-improved.sh <model1> <model2> ..."
+    echo "Usage: ./scripts/models/install-models-improved.sh <model1> <model2> ..."
     echo ""
     echo "Examples:"
-    echo "  ./install-models-improved.sh mistral:7b"
-    echo "  ./install-models-improved.sh qwen2:7b llama2:7b"
-    echo "  ./install-models-improved.sh nomic-embed-text:latest"
+    echo "  ./scripts/models/install-models-improved.sh mistral:7b"
+    echo "  ./scripts/models/install-models-improved.sh qwen2:7b llama2:7b"
+    echo "  ./scripts/models/install-models-improved.sh nomic-embed-text:latest"
     echo ""
     exit 0
 fi

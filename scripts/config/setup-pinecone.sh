@@ -1,6 +1,10 @@
 #!/bin/bash
 
-# Quick Pinecone Setup Helper
+# Quick Pinecone Setup Helper (Windows/Git Bash, macOS, Linux)
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+. "$PROJECT_ROOT/scripts/lib/common.sh"
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  🔑 Agentic RAG - Pinecone Setup Helper"
@@ -31,15 +35,15 @@ if [ "$ready" = "y" ]; then
     read -p "Enter your Pinecone API Key (pcsk_...): " api_key
     
     if [[ $api_key == pcsk_* ]]; then
-        # Update .env file
-        sed -i.bak "s/PINECONE_API_KEY=.*/PINECONE_API_KEY=$api_key/" server/.env
+        # Update .env file (portable, incl. Windows Controlled Folder Access)
+        pa_sed_i "$PROJECT_ROOT/server/.env" "s/PINECONE_API_KEY=.*/PINECONE_API_KEY=$api_key/"
         echo ""
         echo "✅ Updated server/.env with your API key"
         echo ""
         echo "Now restarting server..."
         echo ""
-        cd server
-        npm start
+        cd "$PROJECT_ROOT/server"
+        npm run dev
     else
         echo "❌ Invalid API key format (must start with 'pcsk_')"
         exit 1

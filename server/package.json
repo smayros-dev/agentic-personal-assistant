@@ -13,8 +13,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,json,md}\"",
-    "format:check": "prettier --check \"**/*.{js,json,md}\"",
-    "install:all": "npm install && npm --prefix server install --legacy-peer-deps && npm --prefix client install --legacy-peer-deps"
+    "format:check": "prettier --check \"**/*.{js,json,md}\""
   },
   "keywords": [],
   "author": "",
@@ -45,8 +44,8 @@
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/better-sqlite3": "^9.6.0",
+    "@vitest/coverage-v8": "^5.0.2",
     "@vitest/ui": "^5.0.2",
-    "c8": "^12.0.0",
     "eslint": "^9.17.0",
     "globals": "^15.14.0",
     "nodemon": "^3.0.2",

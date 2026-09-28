@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Run every command from the repository root regardless of invocation path
+PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../.." && pwd )"
+cd "$PROJECT_ROOT" || exit 1
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

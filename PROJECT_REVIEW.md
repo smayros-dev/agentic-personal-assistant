@@ -111,7 +111,7 @@ agentic-personal-assistant/
 ├── docker-compose.yml           # Production compose
 ├── docker-compose.dev.yml       # Development compose
 ├── docker-compose.ci.yml        # CI/CD compose
-├── run-ci-local.sh              # Local CI/CD script
+├── scripts/test/run-ci-local.sh              # Local CI/CD script
 ├── package.json                 # Root package configuration
 ├── MASTER_INDEX.md              # Documentation master index
 ├── PROJECT_REVIEW.md            # This file
@@ -339,7 +339,7 @@ All 6 setup guides are complete with step-by-step instructions.
 - **Problem**: `cd client && npm run test:e2e` fails in script
 - **Root Cause**: `cd` exits on error, propagates to parent shell
 - **Solution**: Use subshell: `(cd client && npm run test:e2e)`
-- **Files**: run-ci-local.sh (line 220)
+- **Files**: scripts/test/run-ci-local.sh (line 220)
 - **Status**: ✅ Fixed
 
 #### ⚠️ Issue #5: Client Coverage Below Target (OPEN)

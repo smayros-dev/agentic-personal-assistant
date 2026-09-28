@@ -64,17 +64,17 @@ pip3 install chromadb
 
 **Terminal 1 - Chroma:**
 ```bash
-./start-chroma-service.sh
+./scripts/start/start-chroma-service.sh
 ```
 
 **Terminal 2 - Backend:**
 ```bash
-./start-backend-service.sh
+./scripts/start/start-backend-service.sh
 ```
 
 **Terminal 3 - Frontend:**
 ```bash
-./start-frontend-service.sh
+./scripts/start/start-frontend-service.sh
 ```
 
 **Benefits:**
@@ -137,7 +137,7 @@ Or visit in browser: **http://localhost:5173**
 
 ### **Chroma Vector Database**
 
-**Start script:** `./start-chroma-service.sh`
+**Start script:** `./scripts/start/start-chroma-service.sh`
 
 **What it does:**
 - Auto-detects Docker or Python
@@ -158,7 +158,7 @@ docker image inspect chromadb/chroma
 
 ### **Backend API Server**
 
-**Start script:** `./start-backend-service.sh`
+**Start script:** `./scripts/start/start-backend-service.sh`
 
 **What it does:**
 - Checks Node.js and npm installed
@@ -184,7 +184,7 @@ RATE_LIMIT_MAX=30
 
 ### **Frontend React App**
 
-**Start script:** `./start-frontend-service.sh`
+**Start script:** `./scripts/start/start-frontend-service.sh`
 
 **What it does:**
 - Checks Node.js and npm installed
@@ -340,7 +340,7 @@ grep CHROMA_URL server/.env
 
 6. **Verify RAG pipeline:**
    ```bash
-   python3 verify-rag.py
+   python3 scripts/test/verify-rag.py
    ```
 
 ---
@@ -404,10 +404,10 @@ docker volume rm chroma-data 2>/dev/null || true
 | Script | Purpose | Use Case |
 |--------|---------|----------|
 | `start.sh` | Start all services | First time setup, production-like |
-| `start-chroma-service.sh` | Start Chroma only | Debugging Chroma issues |
-| `start-backend-service.sh` | Start Backend only | Debugging Backend issues |
-| `start-frontend-service.sh` | Start Frontend only | Debugging Frontend issues |
-| `verify-rag.py` | Test RAG pipeline | Verify PDF upload works |
+| `scripts/start/start-chroma-service.sh` | Start Chroma only | Debugging Chroma issues |
+| `scripts/start/start-backend-service.sh` | Start Backend only | Debugging Backend issues |
+| `scripts/start/start-frontend-service.sh` | Start Frontend only | Debugging Frontend issues |
+| `scripts/test/verify-rag.py` | Test RAG pipeline | Verify PDF upload works |
 
 ---
 
@@ -449,7 +449,7 @@ After everything is running:
 
 1. **Upload a PDF** - Test the upload system
 2. **Chat with it** - Ask questions about the PDF
-3. **Run RAG verification** - `python3 verify-rag.py`
+3. **Run RAG verification** - `python3 scripts/test/verify-rag.py`
 4. **Check logs** - View what's happening
 5. **Explore the code** - Understand the architecture
 6. **Deploy to production** - See deployment guides
@@ -473,9 +473,9 @@ After everything is running:
 | Task | Command |
 |------|---------|
 | Start all services | `./start.sh` |
-| Start Chroma only | `./start-chroma-service.sh` |
+| Start Chroma only | `./scripts/start/start-chroma-service.sh` |
 | View logs | `tail -f /tmp/agentic-assistant-logs/*` |
-| Test setup | `python3 verify-rag.py` |
+| Test setup | `python3 scripts/test/verify-rag.py` |
 | Open app | Browser → http://localhost:5173 |
 | Stop everything | Ctrl+C in terminal |
 
