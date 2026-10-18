@@ -2,13 +2,19 @@ name: E2E Tests - Playwright
 
 on:
   push:
-    branches: [main, develop, ollama]
+    branches: [main, develop]
   pull_request:
-    branches: [main, develop, ollama]
+    branches: [main, develop]
+  workflow_dispatch:
+
+# Cancel superseded runs (e.g. a new push to the same PR branch)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   test:
-    timeout-minutes: 90
+    timeout-minutes: 45
     runs-on: ubuntu-latest
     
     services:
