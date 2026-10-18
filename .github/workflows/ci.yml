@@ -2,10 +2,15 @@ name: CI - Lint & Test
 
 on:
   push:
-    branches: [main, develop, ollama]
+    branches: [main, develop]
   pull_request:
-    branches: [main, develop, ollama]
+    branches: [main, develop]
   workflow_dispatch:
+
+# Cancel superseded runs (e.g. a new push to the same PR branch)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   lint:
@@ -19,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install root dependencies
@@ -63,7 +68,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -98,7 +103,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -121,124 +126,10 @@ jobs:
           path: client/coverage
           retention-days: 30
 
-  test-e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: [test-server, test-client]
-
-    services:
-      ollama:
-        image: ollama/ollama:latest
-        options: >-
-          --health-cmd "curl -f http://localhost:11434/api/tags || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 11434:11434
-
-      chroma:
-        image: chromadb/chroma:latest
-        options: >-
-          --health-cmd "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 8000:8000
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install client dependencies
-        run: npm ci --legacy-peer-deps
-        working-directory: client
-
-      - name: Install server dependencies
-        run: npm ci --legacy-peer-deps
-        working-directory: server
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-        working-directory: client
-
-      - name: Start backend server
-        run: npm run start &
-        working-directory: server
-        env:
-          NODE_ENV: test
-          VECTOR_DB: chroma
-          CHROMA_URL: http://localhost:8000
-          CHROMA_COLLECTION: agentic-rag
-          OLLAMA_BASE_URL: http://localhost:11434
-          OLLAMA_MODEL: qwen2:7b
-          CORS_ORIGIN: http://localhost:5173
-
-      - name: Wait for backend to be ready
-        run: |
-          for i in {1..30}; do
-            if curl -f http://localhost:3001/healthz; then
-              echo "Backend is ready!"
-              exit 0
-            fi
-            echo "Waiting for backend... ($i/30)"
-            sleep 2
-          done
-          echo "Backend failed to start"
-          exit 1
-
-      - name: Start frontend dev server
-        run: npm run dev &
-        working-directory: client
-        env:
-          VITE_API_URL: http://localhost:3001
-
-      - name: Wait for frontend to be ready
-        run: |
-          for i in {1..30}; do
-            if curl -f http://localhost:5173; then
-              echo "Frontend is ready!"
-              exit 0
-            fi
-            echo "Waiting for frontend... ($i/30)"
-            sleep 2
-          done
-          echo "Frontend failed to start"
-          exit 1
-
-      - name: Run E2E tests
-        run: npm run test:e2e
-        working-directory: client
-        env:
-          CI: 'true'
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: client/playwright-report/
-          retention-days: 30
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: client/test-results/
-          retention-days: 30
-
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [lint, test-server, test-client, test-e2e]
+    needs: [lint, test-server, test-client]
     if: always()
 
     steps:
@@ -248,9 +139,9 @@ jobs:
           echo "- Lint: Completed"
           echo "- Server Tests: Completed"
           echo "- Client Tests: Completed"
-          echo "- E2E Tests: Completed"
+          echo "- E2E Tests: see the E2E Tests - Playwright workflow"
           
-          if ${{ needs.lint.result == 'failure' || needs.test-server.result == 'failure' || needs.test-client.result == 'failure' || needs.test-e2e.result == 'failure' }}; then
+          if ${{ needs.lint.result == 'failure' || needs.test-server.result == 'failure' || needs.test-client.result == 'failure' }}; then
             echo "❌ Some tests failed"
             exit 1
           else

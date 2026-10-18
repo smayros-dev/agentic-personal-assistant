@@ -10,7 +10,7 @@ test.describe('🔌 Application Setup & Health', () => {
     await page.goto('/');
     
     // Check for main UI elements
-    await expect(page).toHaveTitle(/Agentic RAG|Chat/i);
+    await expect(page).toHaveTitle(/Agentic Personal Assistant/i);
     
     // Verify header is present
     const header = page.locator('header, [role="banner"]');
@@ -24,7 +24,7 @@ test.describe('🔌 Application Setup & Health', () => {
     await waitForModelLoad();
     
     // Check model selector is visible
-    const modelSelector = page.locator('[data-testid="model-selector"]');
+    const modelSelector = page.locator('#model-select');
     await expect(modelSelector).toBeVisible();
   });
 
@@ -64,7 +64,7 @@ test.describe('💬 Chat Functionality', () => {
   });
 
   test('should accept user messages', async ({ page }) => {
-    const messageInput = page.locator('textarea, input[type="text"]').first();
+    const messageInput = page.locator('textarea.composerInput');
     await expect(messageInput).toBeVisible();
     
     // Type a message
@@ -76,7 +76,7 @@ test.describe('💬 Chat Functionality', () => {
   });
 
   test('should send message on Enter key', async ({ page }) => {
-    const messageInput = page.locator('textarea, input[type="text"]').first();
+    const messageInput = page.locator('textarea.composerInput');
     await messageInput.fill('What is RAG?');
     
     // Press Enter to send
@@ -86,7 +86,7 @@ test.describe('💬 Chat Functionality', () => {
     await page.waitForTimeout(500);
     
     // Verify input is cleared or message appears in chat
-    const chatMessages = page.locator('[data-testid="message"], .message, [role="article"]');
+    const chatMessages = page.locator('.messageRow');
     const messageCount = await chatMessages.count();
     
     expect(messageCount).toBeGreaterThanOrEqual(1);
@@ -103,7 +103,7 @@ test.describe('💬 Chat Functionality', () => {
   });
 
   test('should handle empty message submission', async ({ page }) => {
-    const messageInput = page.locator('textarea, input[type="text"]').first();
+    const messageInput = page.locator('textarea.composerInput');
     
     // Try to send empty message
     await messageInput.fill('');
@@ -128,7 +128,7 @@ test.describe('💬 Chat Functionality', () => {
     await chatWithAI('Second question?');
     
     // Count messages (should show both)
-    const messages = page.locator('[data-testid="message"], .message, [role="article"]');
+    const messages = page.locator('.messageRow');
     const count = await messages.count();
     
     // At least 2 user messages + 2 AI responses
@@ -145,30 +145,29 @@ test.describe('🧠 Model Selection', () => {
   test('should allow changing model', async ({ page, waitForModelLoad }) => {
     await waitForModelLoad();
     
-    const modelSelector = page.locator('[data-testid="model-selector"]');
+    const modelSelector = page.locator('#model-select');
     
     // Get available options
-    const options = page.locator('option[value], datalist option[value]');
+    const options = page.locator('#model-select option');
     const count = await options.count();
     
     expect(count).toBeGreaterThan(0);
     
     if (count > 1) {
-      // Select different model
-      await modelSelector.first().click();
-      await page.keyboard.press('ArrowDown');
-      await page.keyboard.press('Enter');
+      const values = await options.evaluateAll((opts) =>
+        opts.map((o) => (o as HTMLOptionElement).value)
+      );
       
-      // Model should change
-      const selectedValue = await modelSelector.first().inputValue().catch(() => 'fallback');
-      expect(selectedValue).toBeTruthy();
+      // Select a different model
+      await modelSelector.selectOption(values[1]);
+      await expect(modelSelector).toHaveValue(values[1]);
     }
   });
 
   test('model selector should never be disabled', async ({ page, waitForModelLoad }) => {
     await waitForModelLoad();
     
-    const modelSelector = page.locator('[data-testid="model-selector"]');
+    const modelSelector = page.locator('#model-select');
     
     // Check that input is not disabled
     const isDisabled = await modelSelector.isDisabled().catch(() => false);
@@ -187,7 +186,9 @@ test.describe('🔄 Session & State Management', () => {
     await chatWithAI('Test message');
     
     // Check localStorage
-    const sessionId = await page.evaluate(() => localStorage.getItem('sessionId'));
+    const sessionId = await page.evaluate(
+      () => localStorage.getItem('agentic-assistant-session-id')
+    );
     expect(sessionId).toBeTruthy();
     expect(sessionId).toMatch(/^[a-z0-9-]+$/i);
   });
@@ -195,7 +196,10 @@ test.describe('🔄 Session & State Management', () => {
   test('should reuse same session on page reload', async ({ page }) => {
     // Get initial session
     const initialSession = await page.evaluate(() => {
-      return localStorage.getItem('sessionId') || crypto.randomUUID();
+      return (
+        localStorage.getItem('agentic-assistant-session-id') ||
+        crypto.randomUUID()
+      );
     });
     
     // Reload page
@@ -203,13 +207,15 @@ test.describe('🔄 Session & State Management', () => {
     await page.waitForLoadState('networkidle');
     
     // Session should persist
-    const reloadedSession = await page.evaluate(() => localStorage.getItem('sessionId'));
+    const reloadedSession = await page.evaluate(() =>
+      localStorage.getItem('agentic-assistant-session-id')
+    );
     expect(reloadedSession).toBe(initialSession);
   });
 
   test('should clear conversation when clear button clicked', async ({ page, clearConversation }) => {
     // Send messages
-    const input = page.locator('textarea, input[type="text"]').first();
+    const input = page.locator('textarea.composerInput');
     await input.fill('Test 1');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(500);
@@ -218,7 +224,7 @@ test.describe('🔄 Session & State Management', () => {
     await clearConversation();
     
     // Messages should be cleared
-    const messages = page.locator('[data-testid="message"], .message, [role="article"]');
+    const messages = page.locator('.messageRow');
     const count = await messages.count();
     
     // After clear, there should be very few messages (ideally 0, but testing is flexible)
@@ -239,10 +245,14 @@ test.describe('⚠️ Error Handling', () => {
   });
 
   test('should display error message for long input', async ({ page }) => {
-    const messageInput = page.locator('textarea, input[type="text"]').first();
+    await page.goto('/');
+    
+    const messageInput = page.locator('textarea.composerInput');
     
     // Create a very long message
-    const longMessage = 'a'.repeat(5000);
+    // Over the server's 5000-char limit so it is rejected fast (a message
+    // at exactly the limit is accepted and burns minutes of agent time)
+    const longMessage = 'a'.repeat(6000);
     await messageInput.fill(longMessage);
     
     // Try to send
@@ -260,7 +270,9 @@ test.describe('⚠️ Error Handling', () => {
   });
 
   test('should recover after network error', async ({ page }) => {
-    const messageInput = page.locator('textarea, input[type="text"]').first();
+    await page.goto('/');
+    
+    const messageInput = page.locator('textarea.composerInput');
     
     // Send message (may fail due to network, but app should handle)
     await messageInput.fill('Recovery test');
@@ -287,7 +299,7 @@ test.describe('🎨 UI & UX', () => {
     const header = page.locator('header, [role="banner"]');
     await expect(header).toBeVisible();
     
-    const messageInput = page.locator('textarea, input[type="text"]').first();
+    const messageInput = page.locator('textarea.composerInput');
     await expect(messageInput).toBeVisible();
   });
 
@@ -300,7 +312,7 @@ test.describe('🎨 UI & UX', () => {
   });
 
   test('should display proper focus indicators', async ({ page }) => {
-    const messageInput = page.locator('textarea, input[type="text"]').first();
+    const messageInput = page.locator('textarea.composerInput');
     
     // Focus on input
     await messageInput.focus();
@@ -312,7 +324,7 @@ test.describe('🎨 UI & UX', () => {
 
   test('should have proper contrast for readability', async ({ page }) => {
     // This is a basic check - more thorough testing with axe-core recommended
-    const messageInput = page.locator('textarea, input[type="text"]').first();
+    const messageInput = page.locator('textarea.composerInput');
     
     // Input should be visible
     const box = await messageInput.boundingBox();
@@ -327,20 +339,20 @@ test.describe('📱 Cross-Browser Compatibility', () => {
     test.skip(browserName !== 'chromium', 'Chrome-specific test');
     
     await page.goto('/');
-    await expect(page).toHaveTitle(/Agentic RAG|Chat/i);
+    await expect(page).toHaveTitle(/Agentic Personal Assistant/i);
   });
 
   test('should work in Firefox', async ({ page, browserName }) => {
     test.skip(browserName !== 'firefox', 'Firefox-specific test');
     
     await page.goto('/');
-    await expect(page).toHaveTitle(/Agentic RAG|Chat/i);
+    await expect(page).toHaveTitle(/Agentic Personal Assistant/i);
   });
 
   test('should work in Safari', async ({ page, browserName }) => {
     test.skip(browserName !== 'webkit', 'Safari-specific test');
     
     await page.goto('/');
-    await expect(page).toHaveTitle(/Agentic RAG|Chat/i);
+    await expect(page).toHaveTitle(/Agentic Personal Assistant/i);
   });
 });

@@ -8,6 +8,8 @@
 
 import { z } from "zod";
 
+export const MEMORY_CATEGORIES = ["preference", "fact", "goal", "context", "general"];
+
 /**
  * ============================================================================
  * CHAT ENDPOINT VALIDATION
@@ -28,7 +30,16 @@ export const chatMessageSchema = z.object({
     .trim()
     .min(1, "Model cannot be empty")
     .max(100, "Model name too long")
-    .regex(/^[a-zA-Z0-9:._/-]+$/, "Invalid model name format"),
+    .regex(/^[a-zA-Z0-9:._/-]+$/, "Invalid model name format")
+    .optional(),
+
+  // Restricts knowledge-base search to a single uploaded document
+  documentId: z
+    .string()
+    .trim()
+    .max(100, "Document ID too long")
+    .regex(/^[a-zA-Z0-9:._-]+$/, "Invalid document ID format")
+    .optional(),
 
   conversationId: z.string().uuid("Invalid conversation ID format").optional(),
 });
@@ -183,6 +194,21 @@ export const documentIdSchema = z.object({
 
 export const conversationIdSchema = z.object({
   conversationId: z.string().uuid("Invalid conversation ID format"),
+});
+
+/**
+ * ============================================================================
+ * MEMORY VALIDATION
+ * ============================================================================
+ */
+
+export const memoryCreateSchema = z.object({
+  content: z
+    .string()
+    .trim()
+    .min(1, "Memory cannot be empty")
+    .max(500, "Memory too long (max 500 characters)"),
+  category: z.enum(MEMORY_CATEGORIES).optional().default("general"),
 });
 
 /**

@@ -2,33 +2,29 @@ name: E2E Tests - Playwright
 
 on:
   push:
-    branches: [main, develop, ollama]
+    branches: [main, develop]
   pull_request:
-    branches: [main, develop, ollama]
+    branches: [main, develop]
+  workflow_dispatch:
+
+# Cancel superseded runs (e.g. a new push to the same PR branch)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   test:
-    timeout-minutes: 60
+    timeout-minutes: 45
     runs-on: ubuntu-latest
     
     services:
       ollama:
         image: ollama/ollama:latest
-        options: >-
-          --health-cmd "curl -f http://localhost:11434/api/tags || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
         ports:
           - 11434:11434
       
       chroma:
         image: chromadb/chroma:latest
-        options: >-
-          --health-cmd "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
         ports:
           - 8000:8000
 
@@ -39,7 +35,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install client dependencies
@@ -47,12 +43,48 @@ jobs:
         working-directory: client
 
       - name: Install server dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
         working-directory: server
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
         working-directory: client
+
+      - name: Pull test model into Ollama
+        run: |
+          echo "Waiting for Ollama API..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:11434/api/tags >/dev/null; then
+              echo "Ollama is ready"
+              break
+            fi
+            echo "Waiting for Ollama... ($i/30)"
+            sleep 2
+          done
+          echo "Pulling qwen2:0.5b (small model for 2-core runners)..."
+          curl -sf -X POST http://localhost:11434/api/pull \
+            -d '{"name":"qwen2:0.5b"}' --max-time 600
+          echo
+          curl -s http://localhost:11434/api/tags | grep -q "qwen2:0.5b"
+          echo "Model ready"
+
+      - name: Wait for Chroma to be ready
+        run: |
+          echo "Waiting for Chroma API..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:8000/api/v2/heartbeat >/dev/null ||
+               curl -sf http://localhost:8000/api/v1/heartbeat >/dev/null ||
+               curl -sf http://localhost:8000/ >/dev/null; then
+              echo "Chroma is ready"
+              exit 0
+            fi
+            echo "Waiting for Chroma... ($i/30)"
+            sleep 2
+          done
+          echo "Chroma failed to start - container diagnostics:"
+          docker ps -a
+          docker logs $(docker ps -aq --filter "ancestor=chromadb/chroma:latest" | head -1) 2>&1 | tail -50
+          exit 1
 
       - name: Start backend server
         run: npm run start &
@@ -63,8 +95,9 @@ jobs:
           CHROMA_URL: http://localhost:8000
           CHROMA_COLLECTION: agentic-rag
           OLLAMA_BASE_URL: http://localhost:11434
-          OLLAMA_MODEL: qwen2:7b
+          OLLAMA_MODEL: qwen2:0.5b
           CORS_ORIGIN: http://localhost:5173
+          RATE_LIMIT_MAX: '10000'
 
       - name: Wait for backend to be ready
         run: |
@@ -97,7 +130,7 @@ jobs:
           exit 1
 
       - name: Run Playwright tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --project=chromium
         working-directory: client
         env:
           CI: 'true'

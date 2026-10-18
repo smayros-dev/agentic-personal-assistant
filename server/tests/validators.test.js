@@ -17,6 +17,7 @@ import {
   conversationIdSchema,
   modelSelectionSchema,
   formatValidationError,
+  memoryCreateSchema,
 } from "../validators.js";
 import { ZodError } from "zod";
 
@@ -510,5 +511,27 @@ describe("Input Validation Schemas", () => {
       expect(typeof result.limit).toBe("number");
       expect(result.limit).toBe(50);
     });
+  });
+});
+
+describe("Agent upgrade schemas", () => {
+  it("chatMessageSchema accepts a message without a model", () => {
+    expect(chatMessageSchema.parse({ message: "hi" }).model).toBeUndefined();
+  });
+
+  it("chatMessageSchema validates documentId", () => {
+    expect(chatMessageSchema.parse({ message: "hi", documentId: "doc-1-ab:2" }).documentId).toBe(
+      "doc-1-ab:2"
+    );
+    expect(() => chatMessageSchema.parse({ message: "hi", documentId: "<x>" })).toThrow();
+  });
+
+  it("memoryCreateSchema defaults the category and validates content", () => {
+    expect(memoryCreateSchema.parse({ content: " Likes tea " })).toEqual({
+      content: "Likes tea",
+      category: "general",
+    });
+    expect(() => memoryCreateSchema.parse({ content: "" })).toThrow();
+    expect(() => memoryCreateSchema.parse({ content: "x", category: "nope" })).toThrow();
   });
 });

@@ -179,7 +179,7 @@ test.describe('🤖 AI Agent Interactions', () => {
   });
 
   test('should handle rapid consecutive messages', async ({ page }) => {
-    const input = page.locator('textarea, input[type="text"]').first();
+    const input = page.locator('textarea.composerInput');
     
     // Send multiple messages rapidly
     for (let i = 0; i < 3; i++) {
@@ -274,6 +274,9 @@ test.describe('⚡ Performance', () => {
   });
 
   test('should not have memory leaks after many messages', async ({ page, chatWithAI }) => {
+    // 10 sequential chat rounds against a real LLM can be slow on CI runners
+    test.setTimeout(600000);
+
     // Send multiple messages
     const messageCount = 10;
     
@@ -282,7 +285,7 @@ test.describe('⚡ Performance', () => {
     }
     
     // Check that UI is still responsive
-    const input = page.locator('textarea, input[type="text"]').first();
+    const input = page.locator('textarea.composerInput');
     await expect(input).toBeVisible();
     
     // Should still be able to type
@@ -329,7 +332,7 @@ test.describe('♿ Accessibility', () => {
   });
 
   test('should have proper ARIA labels', async ({ page }) => {
-    const input = page.locator('textarea, input[type="text"]').first();
+    const input = page.locator('textarea.composerInput');
     
     // Should have label or aria-label
     const label = await input.getAttribute('aria-label');
