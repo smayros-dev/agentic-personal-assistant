@@ -2,15 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import "./App.css";
 import DocumentManager from "./components/DocumentManager";
-
-// API base URL: configurable via VITE_API_URL for production deployments.
-// For development (localhost), defaults to http://localhost:3001 for XMLHttpRequest compatibility.
-// The Vite proxy only works for regular fetch; XMLHttpRequest (file uploads) need absolute URL.
-const API_BASE =
-  import.meta.env.VITE_API_URL ||
-  (typeof window !== "undefined" && window.location.hostname === "localhost"
-    ? "http://localhost:3001"
-    : "");
+import MemoryPanel from "./components/MemoryPanel";
+import Citations from "./components/Citations";
+import AgentSteps from "./components/AgentSteps";
+import { API_BASE, apiFetch, chatOnce, getApiKey, streamChat } from "./lib/api";
 
 const SESSION_STORAGE_KEY = "agentic-assistant-session-id";
 const MODEL_STORAGE_KEY = "agentic-assistant-model";
@@ -49,15 +44,62 @@ function App() {
   const [selectedModel, setSelectedModel] = useState(getOrCreateModel);
   const [availableModels, setAvailableModels] = useState([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [documents, setDocuments] = useState([]);
+  const [documentFilter, setDocumentFilter] = useState("");
+  const [documentsVersion, setDocumentsVersion] = useState(0);
+  const [memoryVersion, setMemoryVersion] = useState(0);
 
   const endOfMessagesRef = useRef(null);
+  const abortRef = useRef(null);
+
+  // Restore the conversation saved on the server for this session
+  useEffect(() => {
+    let cancelled = false;
+    const loadHistory = async () => {
+      try {
+        const res = await apiFetch(`/api/conversations/${sessionId}`);
+        if (!res?.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setMessages(
+          (data.messages || []).map((m) => ({
+            role: m.role === "assistant" ? "ai" : "user",
+            text: m.content,
+            citations: m.citations || [],
+            steps: m.steps || [],
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to load history:", err);
+      }
+    };
+    loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  // Documents for the "Search in" filter
+  useEffect(() => {
+    const loadDocuments = async () => {
+      try {
+        const res = await apiFetch("/api/documents");
+        if (!res?.ok) return;
+        const data = await res.json();
+        setDocuments(data.documents || []);
+      } catch (err) {
+        console.error("Failed to load documents:", err);
+      }
+    };
+    loadDocuments();
+  }, [documentsVersion]);
 
   // Fetch available models from server on component mount
   useEffect(() => {
     const fetchModels = async () => {
       setLoadingModels(true);
       try {
-        const response = await fetch(`${API_BASE}/api/models`);
+        const response = await apiFetch("/api/models");
         if (response.ok) {
           const data = await response.json();
           setAvailableModels(data.models || []);
@@ -83,37 +125,101 @@ function App() {
     setMessages([]);
   };
 
+  // Updates the in-progress AI message (always the last one while loading)
+  const updateLast = (update) =>
+    setMessages((prev) => {
+      const next = [...prev];
+      next[next.length - 1] = { ...next[next.length - 1], ...update(next[next.length - 1]) };
+      return next;
+    });
+
+  const handleStreamEvent = (event) => {
+    switch (event.type) {
+      case "token":
+        updateLast((m) => ({ text: m.text + event.text }));
+        break;
+      case "reset":
+        updateLast(() => ({ text: "" }));
+        break;
+      case "tool_call":
+        // Text produced before a tool call is the model "thinking out loud"
+        updateLast((m) => ({
+          text: "",
+          steps: [...m.steps, { id: event.id, name: event.name, args: event.args, pending: true }],
+        }));
+        break;
+      case "tool_result":
+        updateLast((m) => ({
+          steps: m.steps.map((s) =>
+            s.id === event.id ? { ...s, resultPreview: event.preview, pending: false } : s
+          ),
+        }));
+        if (event.name === "save_memory") setMemoryVersion((v) => v + 1);
+        break;
+      default:
+        break;
+    }
+  };
+
   const sendMessage = async () => {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
 
     setLoading(true);
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", text: trimmed }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", text: trimmed },
+      { role: "ai", text: "", citations: [], steps: [], streaming: true },
+    ]);
+
+    const body = { message: trimmed, sessionId };
+    if (selectedModel) body.model = selectedModel;
+    if (documentFilter) body.documentId = documentFilter;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let receivedEvents = false;
 
     try {
-      const body = { message: trimmed, sessionId };
-      if (selectedModel) body.model = selectedModel;
-
-      const response = await fetch(`${API_BASE}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(data?.error || "Chat request failed");
+      let result;
+      try {
+        const done = await streamChat({
+          ...body,
+          signal: controller.signal,
+          onEvent: (event) => {
+            receivedEvents = true;
+            handleStreamEvent(event);
+          },
+        });
+        result = { answer: done.answer, citations: done.citations, steps: done.steps };
+      } catch (streamErr) {
+        // Streaming unavailable (e.g. old server or proxy): fall back to plain JSON
+        if (receivedEvents || controller.signal.aborted) throw streamErr;
+        result = await chatOnce(body);
       }
 
-      setMessages((prev) => [...prev, { role: "ai", text: data.answer }]);
+      updateLast(() => ({
+        text: result.answer,
+        citations: result.citations || [],
+        steps: result.steps || [],
+        streaming: false,
+      }));
     } catch (err) {
-      setMessages((prev) => [...prev, { role: "ai", text: err?.message ?? "Chat request failed" }]);
+      updateLast((m) => ({
+        text: controller.signal.aborted
+          ? m.text || "Stopped."
+          : (err?.message ?? "Chat request failed"),
+        steps: m.steps.map((s) => ({ ...s, pending: false })),
+        streaming: false,
+      }));
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
   };
+
+  const stopGenerating = () => abortRef.current?.abort();
 
   // Uses XMLHttpRequest (instead of fetch) because it exposes upload
   // progress events, letting us show a percentage indicator for large PDFs.
@@ -131,9 +237,9 @@ function App() {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_BASE}/api/ingest`);
 
-      // Add API Key header for authentication
-      const apiKey = localStorage.getItem("api-key") || "default-key";
-      xhr.setRequestHeader("X-API-Key", apiKey);
+      // Add API Key header only when one is configured
+      const apiKey = getApiKey();
+      if (apiKey) xhr.setRequestHeader("X-API-Key", apiKey);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -150,8 +256,13 @@ function App() {
         }
 
         if (xhr.status >= 200 && xhr.status < 300) {
-          setUploadStatus("Uploaded and ingested successfully.");
+          setUploadStatus(
+            data?.chunkCount
+              ? `Uploaded and ingested successfully (${data.pageCount} pages, ${data.chunkCount} chunks).`
+              : "Uploaded and ingested successfully."
+          );
           setSelectedFile(null);
+          setDocumentsVersion((v) => v + 1);
         } else {
           setUploadStatus(data?.error || "Upload failed");
         }
@@ -207,6 +318,21 @@ function App() {
             </select>
             {loadingModels && <span className="loadingIndicator">Loading models...</span>}
           </div>
+          <div className="modelSelector">
+            <label htmlFor="document-filter">Search in:</label>
+            <select
+              id="document-filter"
+              value={documentFilter}
+              onChange={(e) => setDocumentFilter(e.target.value)}
+            >
+              <option value="">All documents</option>
+              {documents.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.fileName}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             className="clearButton"
             onClick={clearConversation}
@@ -250,7 +376,11 @@ function App() {
           {uploadStatus && <div className="uploadStatus">{uploadStatus}</div>}
         </section>
 
-        <DocumentManager />
+        <DocumentManager
+          refreshKey={documentsVersion}
+          onChange={() => setDocumentsVersion((v) => v + 1)}
+        />
+        <MemoryPanel refreshKey={memoryVersion} />
 
         <section className="chatPanel">
           <div className="messages">
@@ -262,17 +392,24 @@ function App() {
 
             {messages.map((m, i) => (
               <div key={i} className={m.role === "user" ? "messageRow isUser" : "messageRow isAi"}>
-                <div className="messageBubble">
-                  {m.role === "ai" ? <ReactMarkdown>{m.text}</ReactMarkdown> : m.text}
+                {/* isTyping marks an answer still being generated (e2e tests rely on it) */}
+                <div className={m.streaming ? "messageBubble isTyping" : "messageBubble"}>
+                  {m.role === "ai" ? (
+                    <>
+                      <AgentSteps steps={m.steps} live={m.streaming} />
+                      {m.streaming && !m.text ? (
+                        "Thinking…"
+                      ) : (
+                        <ReactMarkdown>{m.text}</ReactMarkdown>
+                      )}
+                      {!m.streaming && <Citations items={m.citations} />}
+                    </>
+                  ) : (
+                    m.text
+                  )}
                 </div>
               </div>
             ))}
-
-            {loading && (
-              <div className="messageRow isAi">
-                <div className="messageBubble isTyping">Thinking…</div>
-              </div>
-            )}
             <div ref={endOfMessagesRef} />
           </div>
 
@@ -286,13 +423,15 @@ function App() {
                 placeholder="Message your assistant…"
                 rows={1}
               />
-              <button
-                className="sendButton"
-                onClick={sendMessage}
-                disabled={loading || !input.trim()}
-              >
-                Send
-              </button>
+              {loading ? (
+                <button className="sendButton" onClick={stopGenerating}>
+                  Stop
+                </button>
+              ) : (
+                <button className="sendButton" onClick={sendMessage} disabled={!input.trim()}>
+                  Send
+                </button>
+              )}
             </div>
             <div className="composerHint">Enter to send · Shift+Enter for a new line</div>
           </div>

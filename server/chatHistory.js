@@ -12,9 +12,10 @@ import { v4 as uuid } from "uuid";
  * @param {string} role - Message role (user/assistant)
  * @param {string} content - Message content
  * @param {string} model - Model name
+ * @param {Object|null} [metadata] - Extra data stored as JSON (e.g. { citations, steps })
  * @returns {Object} Saved message
  */
-export function saveMessage(sessionId, role, content, model) {
+export function saveMessage(sessionId, role, content, model, metadata = null) {
   // Get or create conversation
   let convStmt = db.prepare("SELECT id FROM conversations WHERE sessionId = ?");
   let conversation = convStmt.get(sessionId);
@@ -34,10 +35,17 @@ export function saveMessage(sessionId, role, content, model) {
   // Save message
   const messageId = uuid();
   const insertMsgStmt = db.prepare(`
-    INSERT INTO messages (id, conversationId, role, content, model, createdAt)
-    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO messages (id, conversationId, role, content, model, metadata, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
   `);
-  insertMsgStmt.run(messageId, conversationId, role, content, model);
+  insertMsgStmt.run(
+    messageId,
+    conversationId,
+    role,
+    content,
+    model ?? null,
+    metadata ? JSON.stringify(metadata) : null
+  );
 
   // Update conversation timestamp
   const updateConvStmt = db.prepare(
@@ -57,16 +65,29 @@ export function saveMessage(sessionId, role, content, model) {
 /**
  * Get conversation history for a session
  * @param {string} sessionId - Session ID
- * @returns {Array} Array of messages
+ * @returns {Array} Array of messages (with parsed citations/steps)
  */
 export function getConversation(sessionId) {
+  // rowid breaks ties between messages saved within the same second
   const stmt = db.prepare(`
     SELECT m.* FROM messages m
     JOIN conversations c ON m.conversationId = c.id
     WHERE c.sessionId = ?
-    ORDER BY m.createdAt ASC
+    ORDER BY m.createdAt ASC, m.rowid ASC
   `);
-  return stmt.all(sessionId);
+  return stmt.all(sessionId).map(({ metadata, ...row }) => {
+    const parsed = parseMetadata(metadata);
+    return { ...row, citations: parsed?.citations ?? [], steps: parsed?.steps ?? [] };
+  });
+}
+
+function parseMetadata(raw) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 /**

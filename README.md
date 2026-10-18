@@ -518,40 +518,63 @@ agentic-personal-assistant/
 
 ### Document Ingestion
 1. User uploads PDF via frontend
-2. Server receives file and extracts text using PDFLoader
-3. Text is split into chunks (1000 chars with 200 overlap)
-4. Chunks are converted to embeddings using Pinecone's model
-5. Embeddings are stored in Pinecone vector database
+2. Server extracts text with PDFLoader and splits it into chunks (1000 chars, 200 overlap)
+3. Each chunk keeps its page number and gets a deterministic id (`<documentId>:<index>`)
+4. Chunks are embedded (Ollama `nomic-embed-text` for Chroma, Pinecone's model for Pinecone) and stored
+5. Page and chunk counts are recorded in SQLite; deleting a document also deletes its vectors
 
 ### Chat Flow
-1. User sends a message
-2. Agent receives message with conversation history
-3. Agent decides whether to search the knowledge base
-4. If needed, searches Pinecone for relevant document chunks
-5. Agent uses retrieved context to generate response
-6. Response is sent back to user and added to conversation history
+1. User sends a message (optionally scoped to one document via "Search in")
+2. The server loads the session's history from SQLite (it survives restarts) and the user's long-term memories
+3. The agent decides which tools to call, streaming each step to the UI
+4. The answer streams token by token and ends with structured citations (`[n] file · p.X`)
+5. The question and answer (with citations and steps) are saved to SQLite
+
+### Agent tools
+| Tool | Purpose |
+|------|---------|
+| `search_knowledge_base` | Semantic search over uploaded PDFs (max 2 per question, optional `documentId`) |
+| `list_documents` | Lists uploaded documents and their ids |
+| `summarize_document` | Fetches representative excerpts of one document to summarize |
+| `get_current_datetime` | Current date/time |
+| `calculator` | Safe arithmetic (`+ - * / % ^ ( )` only) |
+| `save_memory` / `recall_memories` | Long-term memory about the user (max 3 saves per message) |
+
+### Long-term memory
+When you mention a durable fact about yourself ("I'm a nurse", "I prefer short answers"), the agent
+calls `save_memory`. The 30 most recent memories are added to the system prompt of every conversation.
+Open the **🧠 Memory** panel to view, add, or delete them.
+
+### API additions
+- `POST /api/chat` → `{ answer, citations, steps, sessionId }` (body: `message`, optional `sessionId`, `model`, `documentId`)
+- `POST /api/chat/stream` → Server-Sent Events: `start`, `tool_call`, `tool_result`, `token`, `reset`, then `done` (`{ answer, citations, steps }`) or `error`
+- `GET/POST/DELETE /api/memories`, `DELETE /api/memories/:id`
+
+```bash
+curl -N -X POST localhost:3001/api/chat/stream -H 'content-type: application/json' \
+  -d '{"message":"What is 2^10?"}'
+```
 
 ## 🔧 Key Components
 
 ### Agent (`server/agent.js`)
-- ReAct agent using LangChain's `createAgent`
-- MemorySaver for conversation persistence
-- Tool calling for knowledge base search
+- LangChain `createAgent` tool-calling agent, run with `streamEvents`
+- History rebuilt from the SQLite `messages` table (no in-memory checkpointer)
+- Falls back to a single-shot RAG answer if the tool loop fails
 
-### Search Tool (`server/tools.js`)
-- Pinecone vector store integration
-- Similarity search with top-k results
-- Lazy initialization for environment variables
+### Tools (`server/tools.js`), Memory (`server/memories.js`)
+- Per-request tool context records citations and steps
 
-### Ingestion Pipeline (`server/ingest.js`)
-- PDF text extraction and chunking
-- Batch processing (96 chunks per API call)
-- Pinecone upsert operations
+### Ingestion Pipeline (`server/ingest.js`, `server/vectorstore.js`)
+- PDF extraction, chunking, page metadata, deterministic ids
+- Batched writes (96 chunks), metadata-filtered search, per-document deletion
 
 ### Frontend (`client/src/App.jsx`)
-- React state management for chat and upload
-- File upload with progress feedback
-- Real-time chat interface with auto-scroll
+- Streaming chat with live agent steps, citations, Stop button, history restore
+- Document filter, Document Manager, Memory panel
+
+### Tests
+- Server tests use an in-memory SQLite DB (`DB_PATH=:memory:`) and mock Ollama/Chroma: `npm --prefix server run test:run`
 
 ## 🐛 Troubleshooting
 

@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { apiFetch } from "../lib/api";
 
-const API_URL = "http://localhost:3001";
-
-export function DocumentManager() {
+export function DocumentManager({ refreshKey = 0, onChange }) {
   const [documents, setDocuments] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -10,16 +9,16 @@ export function DocumentManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedDocs, setExpandedDocs] = useState(new Set());
 
-  // Fetch documents on mount and when needed
+  // Fetch documents on mount and whenever the parent signals a change (e.g. upload)
   useEffect(() => {
     fetchDocuments();
-  }, []);
+  }, [refreshKey]);
 
   const fetchDocuments = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_URL}/api/documents`);
+      const response = await apiFetch("/api/documents");
       if (!response.ok) throw new Error("Failed to fetch documents");
 
       const data = await response.json();
@@ -43,7 +42,7 @@ export function DocumentManager() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_URL}/api/documents/search`, {
+      const response = await apiFetch("/api/documents/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: searchQuery }),
@@ -64,14 +63,18 @@ export function DocumentManager() {
     if (!confirm("Are you sure you want to delete this document?")) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/documents/${docId}`, {
+      const response = await apiFetch(`/api/documents/${docId}`, {
         method: "DELETE",
       });
 
-      if (!response.ok) throw new Error("Failed to delete document");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to delete document");
+      }
 
       // Refresh list
       fetchDocuments();
+      onChange?.();
     } catch (err) {
       setError(err.message);
     }
@@ -345,7 +348,8 @@ export function DocumentManager() {
                         📄 {doc.fileName}
                       </div>
                       <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-                        📅 {formatDate(doc.uploadedAt)} • 📊 {doc.pageCount} pages
+                        📅 {formatDate(doc.uploadedAt)} • 📊 {doc.pageCount} pages ·{" "}
+                        {doc.chunkCount ?? 0} chunks
                       </div>
                     </div>
                     <button
@@ -377,11 +381,12 @@ export function DocumentManager() {
                         fontSize: "12px",
                       }}
                     >
-                      {doc.size && (
-                        <div style={{ marginBottom: "4px" }}>
-                          <strong>Size:</strong> {formatSize(doc.size)}
-                        </div>
-                      )}
+                      <div style={{ marginBottom: "4px" }}>
+                        <strong>Size:</strong> {formatSize(doc.fileSize)}
+                      </div>
+                      <div style={{ marginBottom: "4px" }}>
+                        <strong>ID:</strong> {doc.id}
+                      </div>
                       {doc.source && (
                         <div style={{ marginBottom: "4px" }}>
                           <strong>Source:</strong> {doc.source}
@@ -392,7 +397,7 @@ export function DocumentManager() {
                           <strong>Type:</strong> {doc.mimeType}
                         </div>
                       )}
-                      {doc.chunkCount && (
+                      {doc.chunkCount > 0 && (
                         <div>
                           <strong>Chunks:</strong> {doc.chunkCount}
                         </div>

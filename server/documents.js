@@ -12,8 +12,8 @@ import db from "./db.js";
  */
 export function addDocument(id, metadata) {
   const stmt = db.prepare(`
-    INSERT INTO documents (id, fileName, fileSize, pageCount, uploadedAt)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO documents (id, fileName, fileSize, pageCount, chunkCount, source, mimeType, uploadedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -21,6 +21,9 @@ export function addDocument(id, metadata) {
     metadata.fileName || "Unknown",
     metadata.size || 0,
     metadata.pageCount || 0,
+    metadata.chunkCount || 0,
+    metadata.source || metadata.fileName || null,
+    metadata.mimeType || null,
     new Date().toISOString()
   );
 
@@ -44,6 +47,18 @@ export function getDocument(id) {
 export function listDocuments() {
   const stmt = db.prepare("SELECT * FROM documents ORDER BY uploadedAt DESC");
   return stmt.all();
+}
+
+/**
+ * Compact document list for the agent's list_documents tool
+ * @returns {Array<{id, fileName, pageCount, chunkCount, uploadedAt}>}
+ */
+export function listDocumentsBrief() {
+  return db
+    .prepare(
+      "SELECT id, fileName, pageCount, chunkCount, uploadedAt FROM documents ORDER BY uploadedAt DESC"
+    )
+    .all();
 }
 
 /**
@@ -79,16 +94,19 @@ export function searchDocuments(query) {
 export function getDocumentStats() {
   const countStmt = db.prepare("SELECT COUNT(*) as count FROM documents");
   const sizeStmt = db.prepare("SELECT SUM(fileSize) as totalSize FROM documents");
-  const chunksStmt = db.prepare("SELECT SUM(pageCount) as totalChunks FROM documents");
+  const sumsStmt = db.prepare(
+    "SELECT SUM(chunkCount) as totalChunks, SUM(pageCount) as totalPages FROM documents"
+  );
 
   const count = countStmt.get();
   const size = sizeStmt.get();
-  const chunks = chunksStmt.get();
+  const sums = sumsStmt.get();
 
   return {
     totalDocuments: count?.count || 0,
     totalSize: size?.totalSize || 0,
-    totalChunks: chunks?.totalChunks || 0,
+    totalChunks: sums?.totalChunks || 0,
+    totalPages: sums?.totalPages || 0,
   };
 }
 

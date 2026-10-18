@@ -315,3 +315,163 @@
   color: rgba(255, 255, 255, 0.55);
   padding: 0 4px;
 }
+
+/* --- Agent steps & citations --- */
+.agentSteps {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: normal;
+}
+
+.agentSteps summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.agentSteps ol {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.stepItem {
+  margin-bottom: 4px;
+}
+
+.stepItem.isPending .stepName::after {
+  content: " …";
+}
+
+.stepName {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.stepResult {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.5);
+  max-height: 3.6em;
+  overflow: hidden;
+}
+
+.citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  white-space: normal;
+}
+
+.citationsLabel {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  align-self: center;
+}
+
+.citationChip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.15);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  color: #93c5fd;
+  cursor: help;
+}
+
+/* --- Memory panel --- */
+.memoryPanel {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #0f1419;
+  border: 1px solid #1e2632;
+  border-radius: 12px;
+  color: #e0e0e0;
+}
+
+.memoryPanel summary {
+  cursor: pointer;
+  color: #c4b5fd;
+  font-weight: 600;
+}
+
+.memoryHint,
+.memoryEmpty {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.memoryForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.memoryInput {
+  flex: 1;
+  min-width: 160px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #2d3f4f;
+  background: #1a2332;
+  color: #e0e0e0;
+}
+
+.memoryForm select {
+  border-radius: 8px;
+  background: #1a2332;
+  color: #e0e0e0;
+  border: 1px solid #2d3f4f;
+}
+
+.memoryError {
+  color: #fecaca;
+  font-size: 12px;
+}
+
+.memoryList {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memoryItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #1a2332;
+  border: 1px solid #2d3f4f;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.memoryCategory {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.2);
+  color: #c4b5fd;
+}
+
+.memoryContent {
+  flex: 1;
+}
+
+.memoryDate {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.memoryDelete {
+  padding: 4px 10px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
