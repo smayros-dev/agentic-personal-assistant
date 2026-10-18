@@ -1,94 +1,78 @@
+import os from 'os';
+import path from 'path';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright Configuration for E2E Testing
- * Runs real application flows end-to-end
+ * Playwright E2E configuration.
+ *
+ * By default the backend runs with LLM_PROVIDER=mock (deterministic fake LLM
+ * and embeddings, see server/mock.js), an isolated SQLite file and a separate
+ * Chroma collection, so the suite is fast and needs only Chroma.
+ * Set E2E_REAL_LLM=1 to target the real Ollama model (use with --grep @smoke).
+ *
+ * When servers are already running on 3001/5173 they are reused, so make sure
+ * a reused backend was started in the matching mode.
  */
+const realLLM = !!process.env.E2E_REAL_LLM;
+
+const serverEnv: Record<string, string> = {
+  RATE_LIMIT_MAX: '10000',
+  DB_PATH: process.env.DB_PATH || path.join(os.tmpdir(), 'agentic-assistant-e2e.db'),
+};
+if (!realLLM) {
+  serverEnv.LLM_PROVIDER = 'mock';
+  // Mock embeddings have their own dimensionality: never mix them with real vectors
+  serverEnv.CHROMA_COLLECTION = 'e2e-mock';
+}
+
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
-
-  /* Run tests in files in parallel */
   fullyParallel: true,
 
-  /* Generous per-test budget: chat flows wait on real LLM responses */
-  timeout: 180 * 1000,
+  /* Mock answers take milliseconds; real models need minutes on CPU */
+  timeout: (realLLM ? 600 : 30) * 1000,
+  expect: { timeout: realLLM ? 30_000 : 10_000 },
 
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-
-  /* Retry on CI only */
   retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 2 : undefined,
 
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-
-  /* Reporter to use */
   reporter: [
-    ['html'],
+    ['html', { open: 'never' }],
     ['junit', { outputFile: 'test-results/junit.xml' }],
     ['json', { outputFile: 'test-results/results.json' }],
     ['list'],
   ],
 
-  /* Shared settings for all the projects below */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: 'http://localhost:5173',
-
-    /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
-
-    /* Screenshot on failure */
     screenshot: 'only-on-failure',
-
-    /* Video on failure */
     video: 'retain-on-failure',
   },
 
-  /* Configure projects for major browsers */
   projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
 
-  /* Run your local dev server before starting the tests */
   webServer: [
     {
-      command: 'npm run dev',
-      url: 'http://localhost:5173',
-      reuseExistingServer: true,
-      timeout: 120 * 1000,
-      cwd: '.',
-    },
-    {
-      command: 'npm run dev',
-      url: 'http://localhost:3001/api/models',
-      reuseExistingServer: true,
+      command: 'npm run start',
+      url: 'http://localhost:3001/healthz',
+      reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
       cwd: '../server',
+      env: serverEnv,
+    },
+    {
+      command: 'npm run dev -- --port 5173 --strictPort',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000,
+      cwd: '.',
     },
   ],
 });

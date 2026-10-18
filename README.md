@@ -191,11 +191,11 @@ tail -f /tmp/agentic-assistant-logs/frontend.log
 
 ### **Verification & Testing**
 - [VERIFY_RAG_PIPELINE.md](./VERIFY_RAG_PIPELINE.md) - Test RAG functionality
-- [PDF_UPLOAD_SUCCESS_REPORT.md](./PDF_UPLOAD_SUCCESS_REPORT.md) - Upload verification
+- [PDF_UPLOAD_SUCCESS_REPORT.md](./ARCHIVE/PDF_UPLOAD_SUCCESS_REPORT.md) - Upload verification
 
 ### **System Overview**
 - [CHROMA_SETUP_INDEX.md](./CHROMA_SETUP_INDEX.md) - Navigation index
-- [PROJECT_REVIEW.md](./PROJECT_REVIEW.md) - Complete project analysis
+- [PROJECT_REVIEW.md](./ARCHIVE/PROJECT_REVIEW.md) - Complete project analysis
 
 ---
 
@@ -395,7 +395,7 @@ python3 scripts/test/verify-rag.py
 | [INFRASTRUCTURE.md](./INFRASTRUCTURE.md) | Complete setup | 10 min |
 | [CHROMA_SETUP_GUIDE.md](./CHROMA_SETUP_GUIDE.md) | Vector DB guide | 15 min |
 | [VERIFY_RAG_PIPELINE.md](./VERIFY_RAG_PIPELINE.md) | Test your setup | 5 min |
-| [PROJECT_REVIEW.md](./PROJECT_REVIEW.md) | Full analysis | 20 min |
+| [PROJECT_REVIEW.md](./ARCHIVE/PROJECT_REVIEW.md) | Full analysis | 20 min |
 
 ---
 

@@ -7,7 +7,13 @@ import helmet from "helmet";
 import os from "node:os";
 import path from "node:path";
 import { unlink } from "node:fs/promises";
-import { runAgent, listOllamaModels, LLMUnavailableError, toHistoryMessages } from "./agent.js";
+import {
+  runAgent,
+  listOllamaModels,
+  LLMUnavailableError,
+  toHistoryMessages,
+  DEFAULT_MODEL,
+} from "./agent.js";
 import { chatMessageSchema, memoryCreateSchema, formatValidationError } from "./validators.js";
 import { ingestData } from "./ingest.js";
 import {
@@ -164,11 +170,11 @@ export function createApp() {
   });
 
   // Lists models currently installed/pulled in the local Ollama instance,
-  // so the client can offer a model picker.
+  // so the client can offer a model picker (defaultModel: the server's OLLAMA_MODEL).
   app.get("/api/models", requireApiKey, async (_req, res, next) => {
     try {
       const models = await listOllamaModels();
-      res.json({ models });
+      res.json({ models, defaultModel: DEFAULT_MODEL });
     } catch (err) {
       next(err);
     }
@@ -654,6 +660,11 @@ export function createApp() {
     // Handle Zod validation errors
     if (err.name === "ZodError") {
       return res.status(400).json(formatValidationError(err));
+    }
+
+    // Malformed JSON body (express.json / body-parser)
+    if (err.type === "entity.parse.failed") {
+      return res.status(400).json({ error: "Invalid JSON body" });
     }
 
     // CORS errors should be handled by cors() middleware, but if we get here,

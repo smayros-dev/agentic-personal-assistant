@@ -1,366 +1,77 @@
-import { test, expect } from './fixtures';
+import { test, expect, openApp, pdfFile, briefingText, uniqueCode } from './fixtures';
 
 /**
- * E2E Test Suite: Advanced RAG Scenarios
- * Tests PDF ingestion, knowledge base search, and AI responses
+ * UI E2E tests for the RAG workflow: upload, scoped questions with citations,
+ * memory panel and document deletion. Runs in mock LLM mode, where the agent
+ * answers with the first retrieved passage.
  */
 
-test.describe('📄 PDF Upload & Ingestion', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-  });
-
-  test('should display file upload input', async ({ page }) => {
-    const fileInput = page.locator('input[type="file"]');
-    await expect(fileInput).toBeVisible();
-  });
-
-  test('should accept PDF file selection', async ({ page, createTestPDF }) => {
-    const testPdfPath = await createTestPDF('test-document.pdf');
-    
-    const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(testPdfPath);
-    
-    // File should be selected
-    const files = await fileInput.inputValue();
-    expect(files).toBeTruthy();
-  });
-
-  test('should reject non-PDF files', async ({ page }) => {
-    // Try to set a non-PDF file
-    const invalidFile = '/etc/hosts'; // Not a PDF
-    
-    const fileInput = page.locator('input[type="file"]');
-    
-    // Attempt to set invalid file
-    try {
-      await fileInput.setInputFiles(invalidFile).catch(() => {
-        // Expected to fail
-      });
-    } catch (e) {
-      // Expected behavior
-    }
-  });
-
-  test('should show upload progress indicator', async ({ page, createTestPDF }) => {
-    const testPdfPath = await createTestPDF('test-progress.pdf');
-    
-    const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(testPdfPath);
-    
-    // Look for progress indicator (spinner, progress bar, etc.)
-    const progressIndicator = page.locator('[role="progressbar"], .progress, .spinner, .loader');
-    
-    // Progress indicator may appear and disappear
-    // Just verify upload completes
-    await page.waitForTimeout(2000);
-  });
-
-  test('should show success message after upload', async ({ page, createTestPDF }) => {
-    const testPdfPath = await createTestPDF('test-success.pdf');
-    
-    const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(testPdfPath);
-    
-    // Wait for success message or status update
-    await page.waitForSelector('text=/success|ingested|uploaded|complete/i', {
-      timeout: 30000,
-    }).catch(() => {
-      // Success message may not be visible, but upload should complete
-    });
-  });
+test.beforeEach(async ({ page }) => {
+  await openApp(page);
 });
 
-test.describe('🔍 Knowledge Base Search', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-  });
+test('upload shows the ingested document in the list and search scope', async ({
+  page,
+  uploadPDF,
+}) => {
+  const codename = uniqueCode('UP');
+  await uploadPDF(pdfFile(`${codename}.pdf`, briefingText(codename)));
 
-  test('should search knowledge base with query', async ({ page, apiBaseUrl, chatWithAI }) => {
-    // Send a query that would trigger KB search
-    const query = 'What is the main topic?';
-    
-    // This will be handled by agent, so just verify it processes
-    const response = await chatWithAI(query);
-    
-    // Should return something (even if KB is empty)
-    expect(response).toBeTruthy();
-  });
-
-  test('should return context from uploaded documents', async ({ page, chatWithAI }) => {
-    // Send a specific query
-    const response = await chatWithAI('Tell me about the document');
-    
-    // Response should be meaningful
-    expect(response.length).toBeGreaterThan(10);
-  });
-
-  test('should handle empty knowledge base gracefully', async ({ page, chatWithAI }) => {
-    // Clear any previous uploads and ask
-    const response = await chatWithAI('What is in the knowledge base?');
-    
-    // Should either return nothing found or provide general answer
-    expect(response).toBeTruthy();
-    
-    // If nothing found, message should indicate this
-    if (response.toLowerCase().includes('not found') || 
-        response.toLowerCase().includes('no information')) {
-      expect(response).toMatch(/not found|no information|no documents/i);
-    }
-  });
-
-  test('should include source citations in responses', async ({ page, chatWithAI }) => {
-    const response = await chatWithAI('What sources are cited?');
-    
-    // Response may include source information
-    // (this depends on whether documents are uploaded)
-    expect(response).toBeTruthy();
-  });
+  await expect(page.locator('.uploadStatus')).toHaveText(
+    'Uploaded and ingested successfully (1 pages, 1 chunks).'
+  );
+  await expect(page.locator('.document-manager')).toContainText(`${codename}.pdf`);
+  await expect(page.locator('#document-filter option', { hasText: `${codename}.pdf` })).toBeAttached();
 });
 
-test.describe('🤖 AI Agent Interactions', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-  });
+test('answers a scoped question with steps and a page citation', async ({
+  page,
+  uploadPDF,
+  chatWithAI,
+}) => {
+  const codename = uniqueCode('RAG');
+  const fileName = `${codename}.pdf`;
+  await uploadPDF(pdfFile(fileName, briefingText(codename)));
+  await page.locator('#document-filter').selectOption({ label: fileName });
 
-  test('should generate coherent responses', async ({ page, chatWithAI }) => {
-    const response = await chatWithAI('Explain what you are');
-    
-    // Should be a coherent response
-    expect(response.length).toBeGreaterThan(20);
-    
-    // Should contain actual words, not error messages
-    expect(response).not.toMatch(/error|failed|undefined/i);
-  });
+  const answer = await chatWithAI('What is the project codename?');
+  expect(answer).toContain(`The project codename is ${codename}`);
 
-  test('should handle follow-up questions in conversation', async ({ page, chatWithAI }) => {
-    // First question
-    const response1 = await chatWithAI('What is machine learning?');
-    expect(response1).toBeTruthy();
-    
-    // Follow-up question
-    const response2 = await chatWithAI('Can you explain that better?');
-    expect(response2).toBeTruthy();
-    
-    // Responses should be different
-    expect(response2).not.toBe(response1);
-  });
-
-  test('should handle complex multi-turn conversations', async ({ page, chatWithAI }) => {
-    const messages = [
-      'Hello, what can you do?',
-      'Can you help me with questions?',
-      'Do you have access to any documents?',
-      'What is RAG technology?',
-    ];
-    
-    for (const message of messages) {
-      const response = await chatWithAI(message);
-      expect(response).toBeTruthy();
-      expect(response.length).toBeGreaterThan(10);
-    }
-  });
-
-  test('should handle queries with special characters', async ({ page, chatWithAI }) => {
-    const specialQueries = [
-      'What is C++ programming?',
-      'How does $100 funding work?',
-      'Explain @mentions on social media',
-      'What about /root directories?',
-    ];
-    
-    for (const query of specialQueries) {
-      const response = await chatWithAI(query);
-      expect(response).toBeTruthy();
-    }
-  });
-
-  test('should handle rapid consecutive messages', async ({ page }) => {
-    const input = page.locator('textarea.composerInput');
-    
-    // Send multiple messages rapidly
-    for (let i = 0; i < 3; i++) {
-      await input.fill(`Message ${i + 1}`);
-      await page.keyboard.press('Enter');
-      await page.waitForTimeout(100);
-    }
-    
-    // App should handle without crashing
-    await expect(input).toBeVisible();
-  });
+  const bubble = page.locator('.messageRow.isAi .messageBubble').last();
+  await expect(bubble.locator('.agentSteps summary')).toHaveText('Agent steps (1)');
+  await expect(bubble.locator('.citationChip')).toHaveText([`[1] ${fileName} · p.1`]);
 });
 
-test.describe('🔐 Data Privacy & Security', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-  });
+test('a stated fact appears in the memory panel', async ({ page, chatWithAI }) => {
+  const name = uniqueCode('Ada');
+  const answer = await chatWithAI(`My name is ${name}`);
+  expect(answer).toContain('Saved memory');
 
-  test('should not expose API keys in frontend', async ({ page }) => {
-    // Check HTML source for exposed credentials
-    const pageContent = await page.content();
-    
-    // Should not contain common API key patterns
-    expect(pageContent).not.toMatch(/api.key|apiKey|pcsk_/i);
-    expect(pageContent).not.toMatch(/secret|password|token/i);
-  });
-
-  test('should use HTTPS in production (skip in dev)', async ({ page }) => {
-    const url = page.url();
-    
-    // In development (localhost), HTTP is OK
-    if (!url.includes('localhost')) {
-      expect(url).toMatch(/^https:\/\//);
-    }
-  });
-
-  test('should not store sensitive data in localStorage', async ({ page }) => {
-    const storage = await page.evaluate(() => {
-      const items: { [key: string]: string } = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key) {
-          items[key] = localStorage.getItem(key) || '';
-        }
-      }
-      return items;
-    });
-    
-    // Session ID is OK, but not sensitive data
-    Object.values(storage).forEach((value) => {
-      expect(value).not.toMatch(/password|secret|api.key|token/i);
-    });
-  });
-
-  test('should handle CORS properly', async ({ page, apiBaseUrl }) => {
-    // Make cross-origin request
-    try {
-      const response = await page.request.get(`${apiBaseUrl}/healthz`);
-      
-      // Should get response (CORS properly configured)
-      expect(response.ok()).toBeTruthy();
-    } catch (e) {
-      // CORS error is also valid (properly blocked)
-    }
-  });
+  const panel = page.locator('details.memoryPanel');
+  await panel.locator('summary').click();
+  await expect(panel.locator('.memoryContent', { hasText: name })).toBeVisible();
+  page.once('dialog', (dialog) => dialog.accept());
+  await panel
+    .locator('.memoryItem', { hasText: name })
+    .locator('button.memoryDelete')
+    .click();
+  await expect(panel.locator('.memoryContent', { hasText: name })).toHaveCount(0);
 });
 
-test.describe('⚡ Performance', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-  });
+test('deleting a document removes it from the UI', async ({ page, uploadPDF }) => {
+  const codename = uniqueCode('RM');
+  const fileName = `${codename}.pdf`;
+  await uploadPDF(pdfFile(fileName, briefingText(codename)));
 
-  test('should load initial page within 3 seconds', async ({ page }) => {
-    const startTime = Date.now();
-    await page.waitForLoadState('networkidle');
-    const loadTime = Date.now() - startTime;
-    
-    // Should load in reasonable time
-    expect(loadTime).toBeLessThan(3000);
-  });
+  page.once('dialog', (dialog) => dialog.accept());
+  const deleteButton = page.getByRole('button', { name: 'Delete', exact: true });
+  const row = page
+    .locator('.document-manager div')
+    .filter({ hasText: fileName })
+    .filter({ has: deleteButton })
+    .last();
+  await row.getByRole('button', { name: 'Delete', exact: true }).click();
 
-  test('should respond to chat messages within 30 seconds', async ({ page, chatWithAI }) => {
-    const startTime = Date.now();
-    
-    const response = await chatWithAI('Quick test');
-    
-    const responseTime = Date.now() - startTime;
-    
-    // Should get response within 30 seconds
-    expect(responseTime).toBeLessThan(30000);
-    expect(response).toBeTruthy();
-  });
-
-  test('should not have memory leaks after many messages', async ({ page, chatWithAI }) => {
-    // 10 sequential chat rounds against a real LLM can be slow on CI runners
-    test.setTimeout(600000);
-
-    // Send multiple messages
-    const messageCount = 10;
-    
-    for (let i = 0; i < messageCount; i++) {
-      await chatWithAI(`Test message ${i + 1}`);
-    }
-    
-    // Check that UI is still responsive
-    const input = page.locator('textarea.composerInput');
-    await expect(input).toBeVisible();
-    
-    // Should still be able to type
-    await input.fill('Still responsive');
-    await expect(input).toHaveValue('Still responsive');
-  });
-
-  test('should handle large PDF files', async ({ page }) => {
-    // This is a conceptual test - actual large file handling
-    // depends on backend configuration
-    
-    const input = page.locator('input[type="file"]');
-    await expect(input).toBeVisible();
-  });
-});
-
-test.describe('♿ Accessibility', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-  });
-
-  test('should have proper heading hierarchy', async ({ page }) => {
-    const h1Count = await page.locator('h1').count();
-    
-    // Page should have at least one H1 (or this check can be adjusted)
-    // Skip if not applicable
-    if (h1Count >= 1) {
-      expect(h1Count).toBeGreaterThanOrEqual(1);
-    }
-  });
-
-  test('should have alt text on images', async ({ page }) => {
-    const images = page.locator('img');
-    const count = await images.count();
-    
-    // If images exist, they should have alt text
-    for (let i = 0; i < count; i++) {
-      const alt = await images.nth(i).getAttribute('alt');
-      if (alt === null) {
-        // Image has no alt text (issue to fix)
-        console.warn(`Image ${i} missing alt text`);
-      }
-    }
-  });
-
-  test('should have proper ARIA labels', async ({ page }) => {
-    const input = page.locator('textarea.composerInput');
-    
-    // Should have label or aria-label
-    const label = await input.getAttribute('aria-label');
-    const ariaLabelledBy = await input.getAttribute('aria-labelledby');
-    const placeholder = await input.getAttribute('placeholder');
-    
-    const hasLabel = label || ariaLabelledBy || placeholder;
-    expect(hasLabel).toBeTruthy();
-  });
-
-  test('should support keyboard navigation', async ({ page }) => {
-    // Tab to first interactive element
-    await page.keyboard.press('Tab');
-    
-    // Focus should move (verify by checking if any element is focused)
-    const focused = await page.evaluate(() => {
-      const el = document.activeElement;
-      return el?.tagName || null;
-    });
-    
-    expect(focused).toBeTruthy();
-  });
-
-  test('should have sufficient color contrast', async ({ page }) => {
-    // This is a basic check - axe-core recommended for thorough testing
-    const text = page.locator('body');
-    
-    // Text should be visible and readable
-    await expect(text).toBeVisible();
-  });
+  await expect(page.locator('.document-manager')).not.toContainText(fileName);
+  await expect(page.locator('#document-filter option', { hasText: fileName })).toHaveCount(0);
 });

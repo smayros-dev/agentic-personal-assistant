@@ -9,6 +9,7 @@ import { PineconeEmbeddings } from "@langchain/pinecone";
 import { Pinecone as PineconeClient } from "@pinecone-database/pinecone";
 import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { OllamaEmbeddings } from "@langchain/ollama";
+import { isMockMode, MockEmbeddings } from "./mock.js";
 
 const VECTOR_DB = process.env.VECTOR_DB || "chroma"; // Default to chroma (local)
 const BATCH_SIZE = 96;
@@ -61,7 +62,10 @@ export function assertVectorStoreConfigured() {
 function getEmbeddings() {
   if (embeddingsInstance) return embeddingsInstance;
 
-  if (VECTOR_DB === "pinecone") {
+  if (isMockMode()) {
+    console.log("🧪 Using mock embeddings (LLM_PROVIDER=mock)");
+    embeddingsInstance = new MockEmbeddings();
+  } else if (VECTOR_DB === "pinecone") {
     console.log("🔌 Initializing Pinecone Embeddings...");
     embeddingsInstance = new PineconeEmbeddings({
       model: "llama-text-embed-v2",
@@ -224,7 +228,9 @@ export function getVectorStoreConfig() {
         ? {
             url: process.env.CHROMA_URL || "NOT SET",
             collection: process.env.CHROMA_COLLECTION || "NOT SET",
-            embeddingModel: process.env.EMBEDDING_MODEL || "nomic-embed-text",
+            embeddingModel: isMockMode()
+              ? "mock"
+              : process.env.EMBEDDING_MODEL || "nomic-embed-text",
             ollamaUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
           }
         : null,

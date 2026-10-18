@@ -61,6 +61,22 @@ describe("basic routes", () => {
     expect((await res.json()).type).toBe("VALIDATION_ERROR");
   });
 
+  it("GET /api/models includes the server's default model", async () => {
+    const { DEFAULT_MODEL } = await import("../agent.js");
+    const data = await (await fetch(`${baseUrl}/api/models`)).json();
+    expect(data).toEqual({ models: ["m:1"], defaultModel: DEFAULT_MODEL });
+  });
+
+  it("POST /api/chat with malformed JSON is a 400, not a 500", async () => {
+    const res = await fetch(`${baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "invalid json {",
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+  });
+
   it("GET /api/documents starts empty", async () => {
     const data = await (await fetch(`${baseUrl}/api/documents`)).json();
     expect(data).toMatchObject({ documents: [], count: 0 });

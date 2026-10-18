@@ -14,15 +14,13 @@ concurrency:
 
 jobs:
   test:
-    timeout-minutes: 45
+    # The backend runs with LLM_PROVIDER=mock (deterministic fake LLM and
+    # embeddings), so no Ollama/model download is needed and the suite takes
+    # about a minute. Real-model coverage: e2e-smoke-real-llm.yml (manual).
+    timeout-minutes: 15
     runs-on: ubuntu-latest
-    
+
     services:
-      ollama:
-        image: ollama/ollama:latest
-        ports:
-          - 11434:11434
-      
       chroma:
         image: chromadb/chroma:latest
         ports:
@@ -47,34 +45,13 @@ jobs:
         working-directory: server
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
         working-directory: client
-
-      - name: Pull test model into Ollama
-        run: |
-          echo "Waiting for Ollama API..."
-          for i in {1..30}; do
-            if curl -sf http://localhost:11434/api/tags >/dev/null; then
-              echo "Ollama is ready"
-              break
-            fi
-            echo "Waiting for Ollama... ($i/30)"
-            sleep 2
-          done
-          echo "Pulling qwen2:0.5b (small model for 2-core runners)..."
-          curl -sf -X POST http://localhost:11434/api/pull \
-            -d '{"name":"qwen2:0.5b"}' --max-time 600
-          echo
-          curl -s http://localhost:11434/api/tags | grep -q "qwen2:0.5b"
-          echo "Model ready"
 
       - name: Wait for Chroma to be ready
         run: |
-          echo "Waiting for Chroma API..."
           for i in {1..30}; do
-            if curl -sf http://localhost:8000/api/v2/heartbeat >/dev/null ||
-               curl -sf http://localhost:8000/api/v1/heartbeat >/dev/null ||
-               curl -sf http://localhost:8000/ >/dev/null; then
+            if curl -sf http://localhost:8000/api/v2/heartbeat >/dev/null; then
               echo "Chroma is ready"
               exit 0
             fi
@@ -86,54 +63,17 @@ jobs:
           docker logs $(docker ps -aq --filter "ancestor=chromadb/chroma:latest" | head -1) 2>&1 | tail -50
           exit 1
 
-      - name: Start backend server
-        run: npm run start &
-        working-directory: server
-        env:
-          NODE_ENV: test
-          VECTOR_DB: chroma
-          CHROMA_URL: http://localhost:8000
-          CHROMA_COLLECTION: agentic-rag
-          OLLAMA_BASE_URL: http://localhost:11434
-          OLLAMA_MODEL: qwen2:0.5b
-          CORS_ORIGIN: http://localhost:5173
-          RATE_LIMIT_MAX: '10000'
-
-      - name: Wait for backend to be ready
-        run: |
-          for i in {1..30}; do
-            if curl -f http://localhost:3001/healthz; then
-              echo "Backend is ready!"
-              exit 0
-            fi
-            echo "Waiting for backend... ($i/30)"
-            sleep 2
-          done
-          echo "Backend failed to start"
-          exit 1
-
-      - name: Start frontend dev server
-        run: npm run dev &
-        working-directory: client
-
-      - name: Wait for frontend to be ready
-        run: |
-          for i in {1..30}; do
-            if curl -f http://localhost:5173; then
-              echo "Frontend is ready!"
-              exit 0
-            fi
-            echo "Waiting for frontend... ($i/30)"
-            sleep 2
-          done
-          echo "Frontend failed to start"
-          exit 1
-
+      # Playwright starts the backend (LLM_PROVIDER=mock) and the Vite client
+      # itself, see client/playwright.config.ts.
       - name: Run Playwright tests
         run: npm run test:e2e -- --project=chromium
         working-directory: client
         env:
           CI: 'true'
+          NODE_ENV: test
+          VECTOR_DB: chroma
+          CHROMA_URL: http://localhost:8000
+          CORS_ORIGIN: http://localhost:5173
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

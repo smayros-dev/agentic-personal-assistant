@@ -1,358 +1,122 @@
-import { test, expect } from './fixtures';
+import { test, expect, openApp } from './fixtures';
 
 /**
- * E2E Test Suite: Basic Application Flow
- * Tests critical user journeys without dependencies
+ * UI E2E tests: app shell, chat composer and session handling.
+ * Runs against the server in mock LLM mode (deterministic answers).
  */
 
-test.describe('🔌 Application Setup & Health', () => {
-  test('should load homepage successfully', async ({ page }) => {
-    await page.goto('/');
-    
-    // Check for main UI elements
+const SESSION_KEY = 'agentic-assistant-session-id';
+
+test.beforeEach(async ({ page }) => {
+  await openApp(page);
+});
+
+test.describe('App shell', () => {
+  test('loads the homepage', async ({ page }) => {
     await expect(page).toHaveTitle(/Agentic Personal Assistant/i);
-    
-    // Verify header is present
-    const header = page.locator('header, [role="banner"]');
-    await expect(header).toBeVisible();
+    await expect(page.locator('.appTitle')).toHaveText('Agentic Personal Assistant');
+    await expect(page.locator('textarea.composerInput')).toBeVisible();
+    await expect(page.locator('#pdf-upload')).toBeAttached();
+    await expect(page.locator('.emptyState')).toBeVisible();
   });
 
-  test('should display model selector', async ({ page, waitForModelLoad }) => {
-    await page.goto('/');
-    
-    // Wait for models to load
-    await waitForModelLoad();
-    
-    // Check model selector is visible
-    const modelSelector = page.locator('#model-select');
-    await expect(modelSelector).toBeVisible();
+  test('selects the server default model', async ({ page }) => {
+    const select = page.locator('#model-select');
+    await expect(select.locator('option')).toHaveText(['mock-llm']);
+    await expect(select).toHaveValue('mock-llm');
+    await expect(select).toBeEnabled();
   });
 
-  test('should connect to backend API', async ({ page, apiBaseUrl }) => {
-    // Test API health check
-    const response = await page.request.get(`${apiBaseUrl}/healthz`);
-    expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(data.status).toBe('ok');
+  test('offers an "All documents" search scope', async ({ page }) => {
+    await expect(page.locator('#document-filter')).toHaveValue('');
+    await expect(page.locator('#document-filter option').first()).toHaveText('All documents');
   });
 
-  test('should fetch available models from API', async ({ page, apiBaseUrl }) => {
-    const response = await page.request.get(`${apiBaseUrl}/api/models`);
-    expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(data.models).toBeDefined();
-    expect(Array.isArray(data.models)).toBeTruthy();
-  });
-
-  test('should get vector store configuration', async ({ page, apiBaseUrl }) => {
-    const response = await page.request.get(`${apiBaseUrl}/api/config`);
-    expect(response.ok()).toBeTruthy();
-    
-    const data = await response.json();
-    expect(data.vectorStore).toBeDefined();
-    expect(['CHROMA', 'PINECONE']).toContain(data.vectorStore);
-  });
-});
-
-test.describe('💬 Chat Functionality', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    // Wait for app to load
-    await page.waitForLoadState('networkidle');
-  });
-
-  test('should accept user messages', async ({ page }) => {
-    const messageInput = page.locator('textarea.composerInput');
-    await expect(messageInput).toBeVisible();
-    
-    // Type a message
-    const testMessage = 'Hello AI!';
-    await messageInput.fill(testMessage);
-    
-    // Verify text is entered
-    await expect(messageInput).toHaveValue(testMessage);
-  });
-
-  test('should send message on Enter key', async ({ page }) => {
-    const messageInput = page.locator('textarea.composerInput');
-    await messageInput.fill('What is RAG?');
-    
-    // Press Enter to send
-    await page.keyboard.press('Enter');
-    
-    // Wait for message to be sent (input should clear)
-    await page.waitForTimeout(500);
-    
-    // Verify input is cleared or message appears in chat
-    const chatMessages = page.locator('.messageRow');
-    const messageCount = await chatMessages.count();
-    
-    expect(messageCount).toBeGreaterThanOrEqual(1);
-  });
-
-  test('should display user messages in chat', async ({ page, chatWithAI }) => {
-    const testMessage = 'Explain machine learning';
-    
-    // Send message using fixture
-    const response = await chatWithAI(testMessage);
-    
-    // Verify response is not empty
-    expect(response).toBeTruthy();
-  });
-
-  test('should handle empty message submission', async ({ page }) => {
-    const messageInput = page.locator('textarea.composerInput');
-    
-    // Try to send empty message
-    await messageInput.fill('');
-    await page.keyboard.press('Enter');
-    
-    // App should handle gracefully (no error should appear)
-    const errorMessage = page.locator('[role="alert"], .error, .toast-error');
-    const isVisible = await errorMessage.isVisible().catch(() => false);
-    
-    // Either no error or a helpful error message
-    if (isVisible) {
-      const text = await errorMessage.textContent();
-      expect(text).toMatch(/required|empty|please/i);
-    }
-  });
-
-  test('should display message history', async ({ page, chatWithAI }) => {
-    // Send first message
-    await chatWithAI('First question?');
-    
-    // Send second message
-    await chatWithAI('Second question?');
-    
-    // Count messages (should show both)
-    const messages = page.locator('.messageRow');
-    const count = await messages.count();
-    
-    // At least 2 user messages + 2 AI responses
-    expect(count).toBeGreaterThanOrEqual(4);
-  });
-});
-
-test.describe('🧠 Model Selection', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-  });
-
-  test('should allow changing model', async ({ page, waitForModelLoad }) => {
-    await waitForModelLoad();
-    
-    const modelSelector = page.locator('#model-select');
-    
-    // Get available options
-    const options = page.locator('#model-select option');
-    const count = await options.count();
-    
-    expect(count).toBeGreaterThan(0);
-    
-    if (count > 1) {
-      const values = await options.evaluateAll((opts) =>
-        opts.map((o) => (o as HTMLOptionElement).value)
-      );
-      
-      // Select a different model
-      await modelSelector.selectOption(values[1]);
-      await expect(modelSelector).toHaveValue(values[1]);
-    }
-  });
-
-  test('model selector should never be disabled', async ({ page, waitForModelLoad }) => {
-    await waitForModelLoad();
-    
-    const modelSelector = page.locator('#model-select');
-    
-    // Check that input is not disabled
-    const isDisabled = await modelSelector.isDisabled().catch(() => false);
-    expect(isDisabled).toBeFalsy();
-  });
-});
-
-test.describe('🔄 Session & State Management', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-  });
-
-  test('should persist session ID in localStorage', async ({ page, chatWithAI }) => {
-    // Send a message (triggers session)
-    await chatWithAI('Test message');
-    
-    // Check localStorage
-    const sessionId = await page.evaluate(
-      () => localStorage.getItem('agentic-assistant-session-id')
-    );
-    expect(sessionId).toBeTruthy();
-    expect(sessionId).toMatch(/^[a-z0-9-]+$/i);
-  });
-
-  test('should reuse same session on page reload', async ({ page }) => {
-    // Get initial session
-    const initialSession = await page.evaluate(() => {
-      return (
-        localStorage.getItem('agentic-assistant-session-id') ||
-        crypto.randomUUID()
-      );
-    });
-    
-    // Reload page
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-    
-    // Session should persist
-    const reloadedSession = await page.evaluate(() =>
-      localStorage.getItem('agentic-assistant-session-id')
-    );
-    expect(reloadedSession).toBe(initialSession);
-  });
-
-  test('should clear conversation when clear button clicked', async ({ page, clearConversation }) => {
-    // Send messages
-    const input = page.locator('textarea.composerInput');
-    await input.fill('Test 1');
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(500);
-    
-    // Clear conversation
-    await clearConversation();
-    
-    // Messages should be cleared
-    const messages = page.locator('.messageRow');
-    const count = await messages.count();
-    
-    // After clear, there should be very few messages (ideally 0, but testing is flexible)
-    expect(count).toBeLessThanOrEqual(1);
-  });
-});
-
-test.describe('⚠️ Error Handling', () => {
-  test('should handle API connection failure gracefully', async ({ page, apiBaseUrl }) => {
-    // Test with unreachable endpoint
-    const response = await page.request.get(
-      `${apiBaseUrl}/api/invalid-endpoint`,
-      { failOnStatusCode: false }
-    );
-    
-    // Should return 404 or similar
-    expect(response.status()).toBeGreaterThanOrEqual(400);
-  });
-
-  test('should display error message for long input', async ({ page }) => {
-    await page.goto('/');
-    
-    const messageInput = page.locator('textarea.composerInput');
-    
-    // Create a very long message
-    // Over the server's 5000-char limit so it is rejected fast (a message
-    // at exactly the limit is accepted and burns minutes of agent time)
-    const longMessage = 'a'.repeat(6000);
-    await messageInput.fill(longMessage);
-    
-    // Try to send
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(1000);
-    
-    // Check for error message
-    const errorMessage = page.locator('[role="alert"], .error, .toast');
-    const isVisible = await errorMessage.isVisible().catch(() => false);
-    
-    if (isVisible) {
-      const text = await errorMessage.textContent();
-      expect(text).toMatch(/too long|exceeds|maximum/i);
-    }
-  });
-
-  test('should recover after network error', async ({ page }) => {
-    await page.goto('/');
-    
-    const messageInput = page.locator('textarea.composerInput');
-    
-    // Send message (may fail due to network, but app should handle)
-    await messageInput.fill('Recovery test');
-    await page.keyboard.press('Enter');
-    
-    // App should still be usable
-    await page.waitForTimeout(1000);
-    
-    // Input should be available for new message
-    await expect(messageInput).toBeVisible();
-  });
-});
-
-test.describe('🎨 UI & UX', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-  });
-
-  test('should be responsive on mobile', async ({ page }) => {
-    // Set mobile viewport
+  test('stays usable on a phone-sized viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
-    
-    // Key elements should still be visible
-    const header = page.locator('header, [role="banner"]');
-    await expect(header).toBeVisible();
-    
-    const messageInput = page.locator('textarea.composerInput');
-    await expect(messageInput).toBeVisible();
+    await expect(page.locator('.appTitle')).toBeVisible();
+    await expect(page.locator('textarea.composerInput')).toBeVisible();
   });
 
-  test('should be responsive on tablet', async ({ page }) => {
-    // Set tablet viewport
-    await page.setViewportSize({ width: 768, height: 1024 });
-    
-    const header = page.locator('header, [role="banner"]');
-    await expect(header).toBeVisible();
+  test('composer has an accessible placeholder and takes focus', async ({ page }) => {
+    const input = page.locator('textarea.composerInput');
+    await expect(input).toHaveAttribute('placeholder', /message/i);
+    await input.focus();
+    await expect(input).toBeFocused();
   });
 
-  test('should display proper focus indicators', async ({ page }) => {
-    const messageInput = page.locator('textarea.composerInput');
-    
-    // Focus on input
-    await messageInput.focus();
-    
-    // Check that element is focused
-    const focused = await page.evaluate(() => document.activeElement?.tagName);
-    expect(['INPUT', 'TEXTAREA']).toContain(focused);
-  });
-
-  test('should have proper contrast for readability', async ({ page }) => {
-    // This is a basic check - more thorough testing with axe-core recommended
-    const messageInput = page.locator('textarea.composerInput');
-    
-    // Input should be visible
-    const box = await messageInput.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box?.width).toBeGreaterThan(0);
-    expect(box?.height).toBeGreaterThan(0);
+  test('does not expose secrets in the page', async ({ page }) => {
+    expect(await page.content()).not.toMatch(/pcsk_|lsv2_/i);
   });
 });
 
-test.describe('📱 Cross-Browser Compatibility', () => {
-  test('should work in Chrome', async ({ page, browserName }) => {
-    test.skip(browserName !== 'chromium', 'Chrome-specific test');
-    
-    await page.goto('/');
-    await expect(page).toHaveTitle(/Agentic Personal Assistant/i);
+test.describe('Chat', () => {
+  test('ignores empty messages', async ({ page }) => {
+    await expect(page.locator('button.sendButton')).toBeDisabled();
+    await page.locator('textarea.composerInput').fill('   ');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.messageRow')).toHaveCount(0);
   });
 
-  test('should work in Firefox', async ({ page, browserName }) => {
-    test.skip(browserName !== 'firefox', 'Firefox-specific test');
-    
-    await page.goto('/');
-    await expect(page).toHaveTitle(/Agentic Personal Assistant/i);
+  test('sends on Enter and renders the streamed answer', async ({ page, chatWithAI }) => {
+    const answer = await chatWithAI('What is 12 * 4?');
+    expect(answer).toContain('The result is 12 * 4 = 48.');
+    await expect(page.locator('.messageRow.isUser')).toHaveText(['What is 12 * 4?']);
+    await expect(page.locator('textarea.composerInput')).toHaveValue('');
   });
 
-  test('should work in Safari', async ({ page, browserName }) => {
-    test.skip(browserName !== 'webkit', 'Safari-specific test');
-    
-    await page.goto('/');
-    await expect(page).toHaveTitle(/Agentic Personal Assistant/i);
+  test('keeps the message history across turns', async ({ page, chatWithAI }) => {
+    await chatWithAI('What is 1 + 1?');
+    await chatWithAI('What is 2 + 2?');
+    await expect(page.locator('.messageRow')).toHaveCount(4);
+    await expect(page.locator('.messageRow.isAi .messageBubble').last()).toContainText('= 4');
+  });
+
+  test('shows the agent steps for an answer', async ({ page, chatWithAI }) => {
+    await chatWithAI('What is 3 * 3?');
+    const steps = page.locator('.messageRow.isAi .agentSteps').last();
+    await expect(steps.locator('summary')).toHaveText('Agent steps (1)');
+    await steps.locator('summary').click();
+    await expect(steps.locator('.stepName')).toHaveText('Calculated');
+    await expect(steps.locator('.stepResult')).toHaveText('3 * 3 = 9');
+  });
+
+  test('rejects an over-long message with a validation error', async ({ page }) => {
+    await page.locator('textarea.composerInput').fill('a'.repeat(5001));
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.messageRow.isAi .messageBubble:not(.isTyping)')).toHaveText(
+      'Message too long (max 5000 characters)'
+    );
+    await expect(page.locator('textarea.composerInput')).toBeEnabled();
+  });
+});
+
+test.describe('Session', () => {
+  test('persists the session id and restores history after reload', async ({
+    page,
+    chatWithAI,
+  }) => {
+    await chatWithAI('What is 5 + 5?');
+    const sessionId = await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY);
+    expect(sessionId).toMatch(/^[0-9a-f-]{36}$/);
+
+    await page.reload();
+    await openApp(page);
+    expect(await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY)).toBe(sessionId);
+    await expect(page.locator('.messageRow')).toHaveCount(2);
+    await expect(page.locator('.messageRow.isAi')).toContainText('5 + 5 = 10');
+  });
+
+  test('clear conversation starts a new session', async ({ page, chatWithAI }) => {
+    await chatWithAI('What is 7 + 7?');
+    const before = await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY);
+
+    await page.locator('header button.clearButton').click();
+    await expect(page.locator('.messageRow')).toHaveCount(0);
+    const after = await page.evaluate((key) => localStorage.getItem(key), SESSION_KEY);
+    expect(after).not.toBe(before);
+
+    await page.reload();
+    await expect(page.locator('.emptyState')).toBeVisible();
   });
 });

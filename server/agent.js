@@ -3,9 +3,12 @@ import { createAgent } from "langchain";
 import { createTools, createRunContext, addCitation } from "./tools.js";
 import { searchVectorStore } from "./vectorstore.js";
 import { listMemories } from "./memories.js";
+import { isMockMode, MockChatModel, MOCK_MODEL } from "./mock.js";
 
 export const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-export const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "qwen3.6:latest";
+export const DEFAULT_MODEL = isMockMode()
+  ? MOCK_MODEL
+  : process.env.OLLAMA_MODEL || "qwen3.6:latest";
 
 const HISTORY_LIMIT = 20;
 const PROMPT_MEMORY_LIMIT = 30;
@@ -34,12 +37,15 @@ const modelsByName = new Map();
 const getModel = (modelName) => {
   if (modelsByName.has(modelName)) return modelsByName.get(modelName);
 
-  const model = new ChatOllama({
-    model: modelName,
-    baseUrl: OLLAMA_BASE_URL,
-    temperature: 0,
-    think: false,
-  });
+  // LLM_PROVIDER=mock: every model name maps to the deterministic fake model
+  const model = isMockMode()
+    ? new MockChatModel({})
+    : new ChatOllama({
+        model: modelName,
+        baseUrl: OLLAMA_BASE_URL,
+        temperature: 0,
+        think: false,
+      });
 
   modelsByName.set(modelName, model);
   return model;
@@ -95,6 +101,7 @@ export function toHistoryMessages(rows, { limit = HISTORY_LIMIT } = {}) {
 
 /** Fetches the list of models currently installed/pulled in the local Ollama instance. */
 export async function listOllamaModels() {
+  if (isMockMode()) return [MOCK_MODEL];
   try {
     const res = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
     if (!res.ok) throw new Error(`Ollama returned ${res.status}`);
