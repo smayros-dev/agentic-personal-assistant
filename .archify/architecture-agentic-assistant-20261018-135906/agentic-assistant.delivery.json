@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "32e42227-27e3-4285-96ac-aee41b38a65f",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\smairi\\Documents\\git-projects\\agentic-personal-assistant\\.archify\\architecture-agentic-assistant-20261018-135906\\candidate.json",
+  "output": "C:\\Users\\smairi\\Documents\\git-projects\\agentic-personal-assistant\\.archify\\architecture-agentic-assistant-20261018-135906\\agentic-assistant.html",
+  "specification": {
+    "sha256": "872d1dccfe90428bea7072d234a59c1dc4a3fd4257ea35c133e60830ec859f56",
+    "bytes": 6050
+  },
+  "artifact": {
+    "sha256": "f1d71c9aad71455d45e373d095023189950e5ebcebb3058724a8d48a9a1bf7e5",
+    "bytes": 770031
+  }
+}

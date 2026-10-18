@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Agentic Personal Assistant",
+    "output": ".archify/architecture-agentic-assistant-20261018-135906/agentic-assistant.html",
+    "quality_profile": "showcase",
+    "locale": "en",
+    "repository": {
+      "url": "https://github.com/smayros-dev/agentic-personal-assistant.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "4f978fed83ffefc3edc3162b251dae63adb464a5"
+    }
+  },
+  "components": [
+    { "id": "user", "type": "external", "label": "User", "sublabel": "Browser", "pos": [40, 300], "size": [150, 64] },
+    {
+      "id": "client", "type": "frontend", "label": "React Client", "sublabel": "Vite :5173 · SSE reader",
+      "pos": [290, 300], "size": [150, 64],
+      "sources": [
+        { "path": "client/src/App.jsx", "line": 164, "end_line": 230, "label": "sendMessage" },
+        { "path": "client/src/lib/api.js", "line": 56, "end_line": 90, "label": "streamChat" }
+      ]
+    },
+    {
+      "id": "api", "type": "backend", "label": "Express API", "sublabel": ":3001 · /api/chat/stream",
+      "pos": [540, 300], "size": [150, 64],
+      "sources": [
+        { "path": "server/app.js", "line": 221, "end_line": 272, "label": "SSE chat route" },
+        { "path": "server/app.js", "line": 178, "end_line": 186, "label": "prepareChat" },
+        { "path": "server/app.js", "line": 275, "label": "ingest route" }
+      ]
+    },
+    {
+      "id": "agent", "type": "backend", "label": "Agent Loop", "sublabel": "createAgent · streamEvents",
+      "pos": [790, 300], "size": [150, 64],
+      "sources": [
+        { "path": "server/agent.js", "line": 129, "end_line": 230, "label": "runAgent" },
+        { "path": "server/agent.js", "line": 62, "label": "buildSystemPrompt" },
+        { "path": "server/agent.js", "line": 236, "label": "single-shot fallback" }
+      ]
+    },
+    {
+      "id": "tools", "type": "backend", "label": "Agent Tools", "sublabel": "7 tools · citations",
+      "pos": [1040, 300], "size": [150, 64],
+      "sources": [{ "path": "server/tools.js", "line": 74, "end_line": 231, "label": "createTools" }]
+    },
+    {
+      "id": "sqlite", "type": "database", "label": "SQLite", "sublabel": "history · docs · memories",
+      "pos": [790, 110], "size": [150, 64],
+      "sources": [
+        { "path": "server/db.js", "line": 6, "label": "DB_PATH" },
+        { "path": "server/memories.js", "line": 19, "label": "addMemory" },
+        { "path": "server/chatHistory.js", "line": 18, "label": "saveMessage" }
+      ]
+    },
+    {
+      "id": "ollama", "type": "external", "label": "Ollama", "sublabel": "LLM + embeddings :11434",
+      "pos": [790, 490], "size": [150, 64],
+      "sources": [
+        { "path": "server/agent.js", "line": 37, "label": "ChatOllama" },
+        { "path": "server/vectorstore.js", "line": 71, "label": "OllamaEmbeddings" }
+      ]
+    },
+    {
+      "id": "ingest", "type": "backend", "label": "Ingest Pipeline", "sublabel": "PDFLoader · chunk ids",
+      "pos": [540, 680], "size": [150, 64],
+      "sources": [{ "path": "server/ingest.js", "line": 47, "end_line": 72, "label": "ingestData" }]
+    },
+    {
+      "id": "vstore", "type": "backend", "label": "Vector Store Adapter", "sublabel": "search · delete by id",
+      "pos": [1040, 680], "size": [150, 64],
+      "sources": [
+        { "path": "server/vectorstore.js", "line": 133, "label": "searchVectorStore" },
+        { "path": "server/vectorstore.js", "line": 162, "label": "deleteDocumentVectors" }
+      ]
+    },
+    {
+      "id": "chroma", "type": "database", "label": "Chroma", "sublabel": "vectors :8000",
+      "pos": [1320, 680], "size": [150, 64],
+      "sources": [{ "path": "server/vectorstore.js", "line": 99, "label": "new Chroma" }]
+    }
+  ],
+  "connections": [
+    { "id": "user-client", "from": "user", "to": "client", "label": "chat", "variant": "emphasis" },
+    { "id": "client-api", "from": "client", "to": "api", "label": "SSE stream", "variant": "emphasis" },
+    { "id": "api-agent", "from": "api", "to": "agent", "label": "runAgent", "variant": "emphasis" },
+    { "id": "agent-tools", "from": "agent", "to": "tools", "label": "invoke", "variant": "emphasis" },
+    { "id": "api-history", "from": "api", "to": "sqlite", "label": "history", "fromSide": "top", "toSide": "left" },
+    { "id": "tools-memory", "from": "tools", "to": "sqlite", "label": "memories", "fromSide": "top", "toSide": "right" },
+    { "id": "agent-llm", "from": "agent", "to": "ollama", "label": "chat + tool calls", "fromSide": "bottom", "toSide": "top" },
+    { "id": "api-ingest", "from": "api", "to": "ingest", "label": "PDF upload", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "ingest-vstore", "from": "ingest", "to": "vstore", "label": "add chunks", "variant": "dashed" },
+    { "id": "tools-vstore", "from": "tools", "to": "vstore", "label": "search", "fromSide": "bottom", "toSide": "top" },
+    { "id": "vstore-chroma", "from": "vstore", "to": "chroma", "label": "query" },
+    { "id": "vstore-embed", "from": "vstore", "to": "ollama", "label": "embed", "variant": "dashed", "fromSide": "top", "toSide": "right" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Agent tools", "items": ["search_knowledge_base (max 2 calls, optional documentId)", "list_documents · summarize_document", "calculator · get_current_datetime", "save_memory · recall_memories"] },
+    { "dot": "violet", "title": "Long-term memory", "items": ["save_memory stores durable user facts in SQLite", "30 most recent memories go into every system prompt", "Memory panel in the client lists and deletes them"] },
+    { "dot": "cyan", "title": "Streaming", "items": ["SSE events: start, tool_call, tool_result, token, done", "History rebuilt from SQLite on every request", "Single-shot RAG answer if the tool loop fails"] },
+    { "dot": "amber", "title": "Vector store", "items": ["Chroma by default; Pinecone with VECTOR_DB=pinecone", "Chunk ids <documentId>:<n> allow per-document delete"] }
+  ]
+}
