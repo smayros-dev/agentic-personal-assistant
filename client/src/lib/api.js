@@ -24,6 +24,10 @@ export function apiFetch(path, init) {
   return fetch(url, { ...init, headers: { ...init?.headers, "x-api-key": apiKey } });
 }
 
+/** Best human-readable message from an API error body (validation errors carry details). */
+export const errorMessage = (data, fallback = "Chat request failed") =>
+  data?.details?.[0]?.message || data?.error || data?.message || fallback;
+
 /**
  * Splits a Server-Sent Events buffer into complete `data:` events.
  * @returns {{ events: object[], rest: string }} rest is an incomplete trailing chunk
@@ -63,7 +67,7 @@ export async function streamChat({ onEvent = () => {}, signal, ...body }) {
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data?.error || data?.message || "Chat request failed");
+    throw new Error(errorMessage(data));
   }
   if (!res.body?.getReader) throw new Error("Streaming not supported");
 
@@ -97,6 +101,6 @@ export async function chatOnce(body) {
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Chat request failed");
+  if (!res.ok) throw new Error(errorMessage(data));
   return data;
 }

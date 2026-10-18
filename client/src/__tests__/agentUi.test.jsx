@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import Citations from "../components/Citations";
 import AgentSteps from "../components/AgentSteps";
 import MemoryPanel from "../components/MemoryPanel";
-import { parseSseBuffer, streamChat } from "../lib/api";
+import { parseSseBuffer, streamChat, chatOnce, errorMessage } from "../lib/api";
 
 const jsonResponse = (data, ok = true) =>
   Promise.resolve({ ok, status: ok ? 200 : 500, json: () => Promise.resolve(data) });
@@ -117,5 +117,40 @@ describe("streamChat", () => {
     });
     fetch.mockResolvedValueOnce({ ok: true, status: 200, body });
     await expect(streamChat({ message: "x" })).rejects.toThrow("down");
+  });
+});
+
+describe("App model selection", () => {
+  beforeEach(() => {
+    fetch.mockReset();
+    localStorage.clear();
+  });
+
+  it("falls back to the server default when the stored model isn't installed", async () => {
+    localStorage.setItem("agentic-assistant-model", "not-installed:1b");
+    fetch.mockImplementation((url) =>
+      String(url).endsWith("/api/models")
+        ? jsonResponse({ models: ["big:26b", "small:4b"], defaultModel: "small:4b" })
+        : jsonResponse({ messages: [], documents: [], memories: [] })
+    );
+    const { default: App } = await import("../App");
+    render(<App />);
+    await waitFor(() => expect(screen.getByLabelText("Model:")).toHaveValue("small:4b"));
+  });
+});
+
+describe("errorMessage", () => {
+  it("prefers the first validation detail, then error, then message", async () => {
+    expect(
+      errorMessage({ message: "Request validation failed", details: [{ message: "Too long" }] })
+    ).toBe("Too long");
+    expect(errorMessage({ error: "Boom", message: "x" })).toBe("Boom");
+    expect(errorMessage({})).toBe("Chat request failed");
+
+    fetch.mockReset();
+    fetch.mockImplementation(() =>
+      jsonResponse({ type: "VALIDATION_ERROR", details: [{ message: "Message too long" }] }, false)
+    );
+    await expect(chatOnce({ message: "x" })).rejects.toThrow("Message too long");
   });
 });

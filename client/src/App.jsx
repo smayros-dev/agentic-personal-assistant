@@ -102,7 +102,16 @@ function App() {
         const response = await apiFetch("/api/models");
         if (response.ok) {
           const data = await response.json();
-          setAvailableModels(data.models || []);
+          const models = data.models || [];
+          setAvailableModels(models);
+          // A stored/default model that isn't installed would make every chat fail:
+          // fall back to the server's default, else the first chat (non-embedding) model.
+          setSelectedModel((current) => {
+            if (!models.length || models.includes(current)) return current;
+            return models.includes(data.defaultModel)
+              ? data.defaultModel
+              : (models.find((m) => !/embed/i.test(m)) ?? models[0]);
+          });
         }
       } catch (err) {
         console.error("Failed to load models:", err);
