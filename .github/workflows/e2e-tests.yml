@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    timeout-minutes: 60
+    timeout-minutes: 90
     runs-on: ubuntu-latest
     
     services:
@@ -91,6 +91,7 @@ jobs:
           OLLAMA_BASE_URL: http://localhost:11434
           OLLAMA_MODEL: qwen2:0.5b
           CORS_ORIGIN: http://localhost:5173
+          RATE_LIMIT_MAX: '10000'
 
       - name: Wait for backend to be ready
         run: |

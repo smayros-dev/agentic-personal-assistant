@@ -1,6 +1,42 @@
 import { test as base, expect } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Builds a small but valid PDF with extractable text, mirroring
+ * scripts/test/make-test-pdf.mjs. Minimal PDFs without text/resources
+ * are rejected by the ingest endpoint.
+ */
+function buildTestPdf(): string {
+  const text =
+    'Project Codename Briefing. The project codename is BLUEFIN-42. ' +
+    'The deployment window is Monday at 09:00 UTC. ' +
+    'The contact for this project is the platform team.';
+  const stream = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`;
+  const objects = [
+    '<</Type/Catalog/Pages 2 0 R>>',
+    '<</Type/Pages/Kids[3 0 R]/Count 1>>',
+    '<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>',
+    '<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>',
+    `<</Length ${stream.length}>>\nstream\n${stream}\nendstream`,
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((body, i) => {
+    offsets.push(pdf.length);
+    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) {
+    pdf += `${String(off).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<</Size ${objects.length + 1}/Root 1 0 R>>\nstartxref\n${xrefStart}\n%%EOF\n`;
+  return pdf;
+}
 
 /**
  * Custom fixtures for E2E testing
@@ -28,50 +64,13 @@ export const test = base.extend<AppFixtures>({
     const pdfFiles: string[] = [];
 
     await use(async (filename: string) => {
-      // Create a simple text file (can be converted to PDF in actual tests)
       const testDir = path.join(__dirname, '../test-files');
       if (!fs.existsSync(testDir)) {
         fs.mkdirSync(testDir, { recursive: true });
       }
 
       const filePath = path.join(testDir, filename);
-
-      // Create sample PDF content (mock)
-      const content = `
-%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>
-endobj
-4 0 obj
-<< >>
-stream
-BT
-/F1 12 Tf
-100 700 Td
-(Test Document: ${filename}) Tj
-ET
-endstream
-endobj
-xref
-0 5
-0000000000 65535 f
-0000000009 00000 n
-0000000056 00000 n
-0000000115 00000 n
-0000000203 00000 n
-trailer
-<< /Size 5 /Root 1 0 R >>
-startxref
-280
-%%EOF
-`;
-      fs.writeFileSync(filePath, content);
+      fs.writeFileSync(filePath, buildTestPdf(), 'latin1');
       pdfFiles.push(filePath);
       return filePath;
     });
@@ -108,16 +107,46 @@ startxref
    */
   chatWithAI: async ({ page }, use) => {
     await use(async (message: string) => {
-      // Type message
-      const inputField = page.locator('textarea, input[type="text"]').first();
-      await inputField.fill(message);
+      // The app's default model ("qwen3.6:latest") may not be installed on
+      // this machine. Pick the first chat-capable model from the dropdown so
+      // the request targets a model that actually exists (embedding models
+      // cannot answer chat prompts).
+      const select = page.locator('#model-select');
+      await page.waitForSelector('#model-select option', {
+        state: 'attached',
+        timeout: 15000,
+      });
+      const values = await select
+        .locator('option')
+        .evaluateAll((opts) =>
+          opts.map((o) => (o as HTMLOptionElement).value)
+        );
+      // Prefer the small CI test model when available (fast on runners),
+      // otherwise any non-embedding chat-capable model.
+      const chatModel =
+        values.find((v) => /qwen2:0\.5b/i.test(v)) ||
+        values.find((v) => !/embed/i.test(v));
+      if (chatModel) {
+        await select.selectOption(chatModel).catch(() => {});
+      }
 
-      // Submit
+      const aiBubbles = page.locator(
+        '.messageRow.isAi .messageBubble:not(.isTyping)'
+      );
+      const previousAiCount = await aiBubbles.count();
+
+      const inputField = page.locator('textarea.composerInput');
+      await inputField.fill(message);
       await page.keyboard.press('Enter');
 
-      // Wait for response
-      await page.waitForTimeout(2000); // Wait for API call
-      const responseText = await page.locator('.message-content').last().textContent();
+      // Wait for a new AI bubble (the "Thinking..." placeholder is excluded)
+      await aiBubbles.nth(previousAiCount).waitFor({
+        state: 'visible',
+        timeout: 60000,
+      });
+      const responseText = await aiBubbles
+        .nth(previousAiCount)
+        .textContent();
       return responseText || '';
     });
   },
@@ -127,14 +156,15 @@ startxref
    */
   waitForModelLoad: async ({ page }, use) => {
     await use(async () => {
-      // Wait for model dropdown to populate
-      await page.waitForSelector('[data-testid="model-selector"]', {
-        timeout: 10000,
+      // Wait for the real model dropdown to appear
+      await page.waitForSelector('#model-select', {
+        timeout: 15000,
       });
 
-      // Wait for at least one model to appear
-      await page.waitForSelector('option[value], datalist option[value]', {
-        timeout: 10000,
+      // Options are not "visible" in headless Chromium - wait for attachment
+      await page.waitForSelector('#model-select option', {
+        state: 'attached',
+        timeout: 15000,
       });
     });
   },
@@ -144,9 +174,10 @@ startxref
    */
   clearConversation: async ({ page }, use) => {
     await use(async () => {
-      // Click clear button if available
-      const clearButton = page.locator('button:has-text("Clear")');
-      if (await clearButton.isVisible()) {
+      const clearButton = page
+        .locator('button.clearButton, button:has-text("Clear")')
+        .first();
+      if (await clearButton.isVisible().catch(() => false)) {
         await clearButton.click();
         await page.waitForTimeout(500);
       }

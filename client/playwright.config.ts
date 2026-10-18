@@ -11,6 +11,9 @@ export default defineConfig({
   /* Run tests in files in parallel */
   fullyParallel: true,
 
+  /* Generous per-test budget: chat flows wait on real LLM responses */
+  timeout: 180 * 1000,
+
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
 

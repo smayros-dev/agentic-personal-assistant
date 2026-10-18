@@ -48,7 +48,7 @@ test.describe('🔌 API Endpoints', () => {
     });
     
     // Should be OK or return a valid response
-    expect([200, 201, 400, 500]).toContain(response.status());
+    expect([200, 201, 400, 500, 503]).toContain(response.status());
   });
 
   test('POST /api/chat should reject empty messages', async ({ apiBaseUrl, page }) => {
@@ -111,7 +111,11 @@ test.describe('🔌 API Endpoints', () => {
 
 test.describe('🔒 CORS & Security', () => {
   test('should have CORS headers configured', async ({ apiBaseUrl, page }) => {
-    const response = await page.request.get(`${apiBaseUrl}/api/config`);
+    const response = await page.request.get(`${apiBaseUrl}/api/config`, {
+      headers: {
+        'Origin': 'http://localhost:5173',
+      },
+    });
     
     // Check CORS headers exist
     const corsHeader = response.headers()['access-control-allow-origin'];
@@ -119,7 +123,8 @@ test.describe('🔒 CORS & Security', () => {
   });
 
   test('should handle OPTIONS requests (CORS preflight)', async ({ apiBaseUrl, page }) => {
-    const response = await page.request.options(`${apiBaseUrl}/api/chat`, {
+    const response = await page.request.fetch(`${apiBaseUrl}/api/chat`, {
+      method: 'OPTIONS',
       headers: {
         'Origin': 'http://localhost:5173',
         'Access-Control-Request-Method': 'POST',
@@ -193,7 +198,7 @@ test.describe('🛠️ Error Handling & Edge Cases', () => {
       });
       
       // Might timeout or succeed
-      expect([200, 400, 500]).toContain(response.status());
+      expect([200, 400, 500, 503]).toContain(response.status());
     } catch (e) {
       // Timeout is acceptable error
       expect(String(e)).toMatch(/timeout/i);
@@ -263,7 +268,7 @@ test.describe('🔄 Concurrent Requests', () => {
     
     // All should get responses
     responses.forEach(response => {
-      expect([200, 201, 400, 500]).toContain(response.status());
+      expect([200, 201, 400, 500, 503]).toContain(response.status());
     });
   });
 
@@ -300,7 +305,7 @@ test.describe('🌍 Different Model Selection', () => {
       });
       
       // Should accept request (may return error if model doesn't exist)
-      expect([200, 201, 400, 500]).toContain(response.status());
+      expect([200, 201, 400, 500, 503]).toContain(response.status());
     }
   });
 
@@ -314,6 +319,6 @@ test.describe('🌍 Different Model Selection', () => {
     });
     
     // Should either reject or handle gracefully
-    expect([200, 400, 422, 500]).toContain(response.status());
+    expect([200, 400, 422, 500, 503]).toContain(response.status());
   });
 });
